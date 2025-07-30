@@ -1,0 +1,7 @@
+<library path="elu_adapter">
+  <class name="elu_adapter/EluAdapter" 
+         type="elu_adapter::EluAdapter" 
+         base_class_type="elu_robot_arm_framework::RobotArmInterface">
+    <description>ELU机械臂适配器插件</description>
+  </class>
+</library>

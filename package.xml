@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>elu_robot_arm_framework</name>
+  <version>1.0.0</version>
+  <description>ELU机械臂运动控制框架 - 支持多种机械臂的统一控制接口</description>
+  
+  <maintainer email="dev@elu-robotics.com">ELU Robotics Team</maintainer>
+  <license>Apache-2.0</license>
+  
+  <url type="website">https://www.elu-robotics.com</url>
+  <url type="bugtracker">https://github.com/elu-robotics/elu_robot_arm_framework/issues</url>
+  <url type="repository">https://github.com/elu-robotics/elu_robot_arm_framework</url>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  
+  <!-- 核心ROS2依赖 -->
+  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>pluginlib</depend>
+  
+  <!-- 可选依赖 -->
+  <depend>trajectory_msgs</depend>
+  <depend>control_msgs</depend>
+  
+  <!-- 消息生成 -->
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+  
+  <!-- 测试依赖 -->
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

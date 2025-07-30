@@ -1,0 +1,12 @@
+# 切换机械臂服务定义
+
+# 请求
+string robot_id        # 要切换到的机械臂ID
+bool force_switch     # 是否强制切换
+
+---
+
+# 响应
+bool success          # 切换是否成功
+string message        # 响应消息
+string previous_robot # 之前的机械臂ID

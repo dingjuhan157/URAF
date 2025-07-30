@@ -1,0 +1,48 @@
+# 安全检查配置文件
+
+# 全局安全开关
+safety_enabled: true
+
+# 工作空间限制
+workspace_limits:
+  x_min: -1.5
+  x_max: 1.5
+  y_min: -1.5
+  y_max: 1.5
+  z_min: 0.0
+  z_max: 2.5
+
+# 速度和加速度限制
+max_speed_ratio: 1.0
+max_acceleration_ratio: 1.0
+
+# 关节速度限制 (rad/s)
+max_joint_velocities: [2.0, 2.0, 2.0, 3.0, 3.0, 3.0]
+
+# 关节加速度限制 (rad/s²)
+max_joint_accelerations: [5.0, 5.0, 5.0, 10.0, 10.0, 10.0]
+
+# 碰撞检测
+collision_detection:
+  enabled: true
+  self_collision_check: true
+  environment_collision_check: true
+
+# 安全区域定义
+safety_zones:
+  forbidden_zones:
+    - name: "operator_area"
+      type: "box"
+      center: [0.0, -0.8, 0.5]
+      dimensions: [0.5, 0.3, 1.0]
+    
+  warning_zones:
+    - name: "work_table"
+      type: "box"
+      center: [0.6, 0.0, 0.0]
+      dimensions: [0.8, 1.0, 0.1]
+
+# 紧急停止设置
+emergency_stop:
+  deceleration_time: 0.1  # seconds
+  stop_distance: 0.01     # meters

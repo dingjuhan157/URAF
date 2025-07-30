@@ -1,0 +1,17 @@
+# 执行运动服务定义
+
+# 请求
+string robot_id
+int32 motion_type
+float64[] joint_positions
+geometry_msgs/Pose target_pose
+float64 speed_ratio
+float64 acceleration_ratio
+bool wait_for_completion
+
+---
+
+# 响应
+bool success
+string message
+float64 execution_time
