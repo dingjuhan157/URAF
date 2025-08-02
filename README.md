@@ -139,5 +139,5 @@ Apache License 2.0
 
 ## 联系方式
 
-- 邮箱: dev@elu-robotics.com
-- 网站: https://www.elu-robotics.com
+- 邮箱: info@elu-ai.com
+- 网站: https://www.elu-ai.com

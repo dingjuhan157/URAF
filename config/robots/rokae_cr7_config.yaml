@@ -1,0 +1,83 @@
+# Rokae xMateCR7 机械臂配置文件
+# 配置文件路径: config/robots/rokae_cr7_config.yaml
+
+# 连接配置
+robot_ip: "192.168.0.160"      # 机械臂IP地址
+local_ip: "192.168.0.100"      # 本机IP地址（用于实时通信，可选）
+connection_timeout: 5000       # 连接超时时间 (毫秒)
+
+# 机械臂基本信息
+robot_model: "xMateCR7"        # 机械臂型号
+joint_count: 6                 # 关节数量
+payload: 7.0                   # 负载能力 (kg)
+
+# 运动参数
+default_speed: 200.0           # 默认速度 (mm/s)
+default_acceleration: 0.5      # 默认加速度比例 [0.0-1.0]
+default_blend_radius: 5.0      # 默认转弯区半径 (mm)
+max_velocity_ratio: 1.0        # 最大速度比例
+max_acceleration_ratio: 1.0    # 最大加速度比例
+
+# 关节限制 (弧度)
+joint_limits:
+  joint1: [-6.28, 6.28]        # ±360°
+  joint2: [-6.28, 6.28]        # ±360°
+  joint3: [-3.14, 3.14]        # ±180°
+  joint4: [-6.28, 6.28]        # ±360°
+  joint5: [-6.28, 6.28]        # ±360°
+  joint6: [-6.28, 6.28]        # ±360°
+
+# 工作空间限制
+workspace_limits:
+  x_min: -1.0                  # X方向最小值 (m)
+  x_max: 1.0                   # X方向最大值 (m)
+  y_min: -1.0                  # Y方向最小值 (m)
+  y_max: 1.0                   # Y方向最大值 (m)
+  z_min: 0.1                   # Z方向最小值 (m)
+  z_max: 1.5                   # Z方向最大值 (m)
+
+# 安全配置
+safety:
+  enable_collision_detection: true    # 是否启用碰撞检测
+  collision_sensitivity: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]  # 碰撞检测灵敏度
+  emergency_stop_deceleration: 2.0    # 急停减速度 (m/s²)
+  
+# 工具配置
+tool_frame:
+  position: [0.0, 0.0, 0.0]     # 工具坐标系位置 (m)
+  orientation: [0.0, 0.0, 0.0]  # 工具坐标系姿态 (弧度: roll, pitch, yaw)
+  mass: 0.0                     # 工具质量 (kg)
+  center_of_mass: [0.0, 0.0, 0.0]  # 工具质心位置 (m)
+
+# 工作空间配置
+workspace_frame:
+  position: [0.0, 0.0, 0.0]     # 工作空间坐标系位置 (m)
+  orientation: [0.0, 0.0, 0.0]  # 工作空间坐标系姿态 (弧度)
+
+# 控制器配置
+controller:
+  control_frequency: 100.0      # 控制频率 (Hz)
+  position_tolerance: 0.01      # 位置容差 (m)
+  orientation_tolerance: 0.1    # 姿态容差 (弧度)
+  
+# 规划器配置
+planner:
+  planning_algorithm: "rokae_joint_planner"  # 规划算法
+  planning_time_limit: 5.0      # 规划时间限制 (秒)
+  max_planning_attempts: 10     # 最大规划尝试次数
+  
+  # 轨迹优化
+  optimize_trajectory: true     # 是否优化轨迹
+  smoothing_iterations: 5       # 平滑迭代次数
+  
+# 监控配置
+monitoring:
+  status_update_frequency: 10.0  # 状态更新频率 (Hz)
+  log_level: "INFO"             # 日志级别: DEBUG, INFO, WARN, ERROR
+  enable_diagnostics: true      # 是否启用诊断
+
+# 通信配置
+communication:
+  timeout: 1000                 # 通信超时 (毫秒)
+  retry_attempts: 3             # 重试次数
+  heartbeat_interval: 1000      # 心跳间隔 (毫秒)

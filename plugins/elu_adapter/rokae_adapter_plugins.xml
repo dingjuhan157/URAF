@@ -1,0 +1,27 @@
+<library path="rokae_adapter">
+  <class name="elu_robot_arm_framework/RokaeAdapter" 
+         type="elu_robot_arm_framework::RokaeAdapter" 
+         base_class_type="elu_robot_arm_framework::RobotArmInterface">
+    <description>
+      Rokae robot arm adapter for xMateCR7 and other Rokae robot models.
+      Provides interface for motion control, status monitoring, and real-time communication.
+      
+      Supported features:
+      - Joint space and Cartesian space motion control
+      - Real-time status monitoring
+      - Path planning and trajectory execution
+      - Safety monitoring and emergency stop
+      - Tool and workspace frame configuration
+      
+      Compatible models:
+      - xMateCR7/12
+      - xMateSR3/4  
+      - xMateER3/7
+      
+      Requirements:
+      - Rokae xCore SDK
+      - Network connection to robot controller
+      - Robot controller version >= v3.0.1
+    </description>
+  </class>
+</library>
