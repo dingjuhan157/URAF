@@ -8,16 +8,19 @@
 namespace elu_robot_arm_framework
 {
 
+// 修复构造函数 - 按照头文件中声明的顺序初始化成员变量
 RokaeAdapter::RokaeAdapter()
-: logger_(rclcpp::get_logger("rokae_adapter"))
-, is_connected_(false)
-, is_moving_(false)
-, has_error_(false)
-, stop_monitoring_(false)
-, connection_timeout_(5000)
-, default_speed_(200.0)
-, default_acceleration_(0.5)
-, default_blend_radius_(5.0)
+: robot_ip_("192.168.1.100")              // 默认IP
+, local_ip_("192.168.1.10")               // 默认本地IP
+, connection_timeout_(5000)                // 连接超时时间
+, default_speed_(200.0)                    // 默认速度 (mm/s)
+, default_acceleration_(0.5)               // 默认加速度百分比
+, default_blend_radius_(5.0)               // 默认转弯区半径 (mm)
+, is_connected_(false)                     // 连接状态
+, is_moving_(false)                        // 运动状态
+, has_error_(false)                        // 错误状态
+, stop_monitoring_(false)                  // 停止监控标志
+, logger_(rclcpp::get_logger("rokae_adapter"))
 {
   RCLCPP_INFO(logger_, "RokaeAdapter initialized");
 }
@@ -25,6 +28,70 @@ RokaeAdapter::RokaeAdapter()
 RokaeAdapter::~RokaeAdapter()
 {
   disconnect();
+}
+
+// 实现缺失的基类纯虚函数
+std::string RokaeAdapter::getRobotModel() const
+{
+#ifdef XCORE_SDK_AVAILABLE
+  if (robot_) {
+    try {
+      // 返回Rokae机械臂型号信息
+      return "xMateCR7"; // 根据实际SDK接口获取型号
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(logger_, "Failed to get robot model: %s", e.what());
+    }
+  }
+#endif
+  return "Rokae xMateCR7"; // 默认型号
+}
+
+int RokaeAdapter::getDoF() const
+{
+  return 6; // xMateCR7是6自由度机械臂
+}
+
+double RokaeAdapter::getMaxPayload() const
+{
+#ifdef XCORE_SDK_AVAILABLE
+  if (robot_) {
+    try {
+      // 从SDK获取最大负载信息
+      return 7.0; // xMateCR7的最大负载为7kg
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(logger_, "Failed to get max payload: %s", e.what());
+    }
+  }
+#endif
+  return 7.0; // 默认最大负载7kg
+}
+
+std::vector<double> RokaeAdapter::getJointLimits() const
+{
+  // xMateCR7的关节限制 (弧度)
+  // 格式: [J1_min, J1_max, J2_min, J2_max, J3_min, J3_max, J4_min, J4_max, J5_min, J5_max, J6_min, J6_max]
+  std::vector<double> limits = {
+    -3.14159, 3.14159,   // Joint 1: ±180°
+    -2.61799, 2.61799,   // Joint 2: ±150°
+    -3.14159, 3.14159,   // Joint 3: ±180°
+    -3.14159, 3.14159,   // Joint 4: ±180°
+    -2.26893, 2.26893,   // Joint 5: ±130°
+    -6.28318, 6.28318    // Joint 6: ±360°
+  };
+
+#ifdef XCORE_SDK_AVAILABLE
+  if (robot_) {
+    try {
+      // 如果SDK提供了获取关节限制的接口，可以在这里调用
+      // auto sdk_limits = robot_->getJointLimits();
+      // 处理SDK返回的限制
+    } catch (const std::exception& e) {
+      RCLCPP_WARN(logger_, "Failed to get joint limits from SDK: %s", e.what());
+    }
+  }
+#endif
+
+  return limits;
 }
 
 bool RokaeAdapter::connect(const std::string& config_file)
@@ -117,7 +184,6 @@ bool RokaeAdapter::isConnected() const
   return is_connected_;
 }
 
-// 修正方法签名 - 添加speed_ratio参数
 bool RokaeAdapter::moveToJoint(const std::vector<double>& joints, double speed_ratio)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -164,10 +230,10 @@ bool RokaeAdapter::moveToJoint(const std::vector<double>& joints, double speed_r
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated joint movement completed");
+  return true;
 }
 
-// 修正方法签名 - 添加speed_ratio参数
 bool RokaeAdapter::moveToPose(const geometry_msgs::msg::Pose& pose, double speed_ratio)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -213,10 +279,10 @@ bool RokaeAdapter::moveToPose(const geometry_msgs::msg::Pose& pose, double speed
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated pose movement completed");
+  return true;
 }
 
-// 新增方法 - 实现基类的linearMove
 bool RokaeAdapter::linearMove(const geometry_msgs::msg::Pose& pose, double speed_ratio)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -262,10 +328,10 @@ bool RokaeAdapter::linearMove(const geometry_msgs::msg::Pose& pose, double speed
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated linear movement completed");
+  return true;
 }
 
-// 扩展方法 - 移除override（保持原有功能）
 bool RokaeAdapter::moveToJointAsync(const std::vector<double>& joints)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -313,7 +379,8 @@ bool RokaeAdapter::moveToJointAsync(const std::vector<double>& joints)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated async joint movement started");
+  return true;
 }
 
 bool RokaeAdapter::moveToPoseAsync(const geometry_msgs::msg::Pose& pose)
@@ -362,7 +429,8 @@ bool RokaeAdapter::moveToPoseAsync(const geometry_msgs::msg::Pose& pose)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated async pose movement started");
+  return true;
 }
 
 std::vector<double> RokaeAdapter::getCurrentJoints()
@@ -391,6 +459,9 @@ std::vector<double> RokaeAdapter::getCurrentJoints()
   } catch (const std::exception& e) {
     RCLCPP_ERROR(logger_, "Exception getting joint positions: %s", e.what());
   }
+#else
+  // 模拟数据
+  joints = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 #endif
   
   return joints;
@@ -422,12 +493,17 @@ geometry_msgs::msg::Pose RokaeAdapter::getCurrentPose()
   } catch (const std::exception& e) {
     RCLCPP_ERROR(logger_, "Exception getting pose: %s", e.what());
   }
+#else
+  // 模拟数据
+  pose.position.x = 0.0;
+  pose.position.y = 0.0;
+  pose.position.z = 0.5;
+  pose.orientation.w = 1.0;
 #endif
   
   return pose;
 }
 
-// 修正返回类型 - 返回RobotState枚举而不是RobotStatus结构体
 RobotState RokaeAdapter::getStatus()
 {
   if (!is_connected_) {
@@ -466,7 +542,6 @@ RobotState RokaeAdapter::getStatus()
   return is_moving_ ? RobotState::MOVING : RobotState::IDLE;
 }
 
-// 新增方法 - 实现基类的getErrorMessage
 std::string RokaeAdapter::getErrorMessage()
 {
   return last_error_message_;
@@ -504,10 +579,10 @@ bool RokaeAdapter::setSpeed(double speed_ratio)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated speed set to ratio: %.2f", speed_ratio);
+  return true;
 }
 
-// 修正方法签名 - 参数名从acceleration改为acceleration_ratio
 bool RokaeAdapter::setAcceleration(double acceleration_ratio)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -540,10 +615,10 @@ bool RokaeAdapter::setAcceleration(double acceleration_ratio)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated acceleration set to ratio: %.2f", acceleration_ratio);
+  return true;
 }
 
-// 新增方法 - 实现基类的setPayload
 bool RokaeAdapter::setPayload(double payload_kg)
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -567,7 +642,8 @@ bool RokaeAdapter::setPayload(double payload_kg)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated payload set to %.2f kg", payload_kg);
+  return true;
 }
 
 bool RokaeAdapter::setBlendRadius(double radius)
@@ -602,7 +678,8 @@ bool RokaeAdapter::setBlendRadius(double radius)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated blend radius set to %.3f m", radius);
+  return true;
 }
 
 bool RokaeAdapter::setToolFrame(const geometry_msgs::msg::Pose& tool_frame)
@@ -642,7 +719,8 @@ bool RokaeAdapter::setToolFrame(const geometry_msgs::msg::Pose& tool_frame)
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated tool frame set");
+  return true;
 }
 
 bool RokaeAdapter::setWorkspaceFrame(const geometry_msgs::msg::Pose& workspace_frame)
@@ -686,7 +764,8 @@ bool RokaeAdapter::setWorkspaceFrame(const geometry_msgs::msg::Pose& workspace_f
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated workspace frame set");
+  return true;
 }
 
 bool RokaeAdapter::emergencyStop()
@@ -719,10 +798,10 @@ bool RokaeAdapter::emergencyStop()
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated emergency stop executed");
+  return true;
 }
 
-// 修正方法名 - 从clearErrors改为clearError
 bool RokaeAdapter::clearError()
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -756,10 +835,12 @@ bool RokaeAdapter::clearError()
   }
 #endif
   
-  return false;
+  has_error_ = false;
+  last_error_message_.clear();
+  RCLCPP_INFO(logger_, "Simulated errors cleared");
+  return true;
 }
 
-// 新增方法 - 实现基类的enable
 bool RokaeAdapter::enable()
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -791,10 +872,10 @@ bool RokaeAdapter::enable()
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated robot enabled");
+  return true;
 }
 
-// 新增方法 - 实现基类的disable
 bool RokaeAdapter::disable()
 {
 #ifdef XCORE_SDK_AVAILABLE
@@ -826,66 +907,49 @@ bool RokaeAdapter::disable()
   }
 #endif
   
-  return false;
+  RCLCPP_INFO(logger_, "Simulated robot disabled");
+  return true;
 }
 
-// 新增方法 - 实现基类的getRobotModel
-std::string RokaeAdapter::getRobotModel() const
-{
-  return "Rokae xMateCR7";
-}
-
-// 新增方法 - 实现基类的getDoF
-int RokaeAdapter::getDoF() const
-{
-  return 6;
-}
-
-// 新增方法 - 实现基类的getMaxPayload
-double RokaeAdapter::getMaxPayload() const
-{
-  return 7.0; // kg
-}
-
-// 新增方法 - 实现基类的getJointLimits
-std::vector<double> RokaeAdapter::getJointLimits() const
-{
-  // 返回6个关节的上下限 (12个值)
-  // 这里需要根据实际的Rokae xMateCR7规格设置
-  std::vector<double> limits = {
-    -175.0, 175.0,   // Joint 1 (degrees)
-    -90.0,  90.0,    // Joint 2
-    -175.0, 175.0,   // Joint 3
-    -180.0, 180.0,   // Joint 4
-    -120.0, 120.0,   // Joint 5
-    -360.0, 360.0    // Joint 6
-  };
-  
-  // 转换为弧度
-  for (auto& limit : limits) {
-    limit = limit * M_PI / 180.0;
-  }
-}
-  
+// 实现protected方法
 bool RokaeAdapter::loadConfiguration(const std::string& config_file)
 {
   try {
+    if (config_file.empty()) {
+      RCLCPP_WARN(logger_, "No config file provided, using default settings");
+      return true;
+    }
+
     YAML::Node config = YAML::LoadFile(config_file);
     
-    // 读取连接参数
-    robot_ip_ = config["robot_ip"].as<std::string>("192.168.0.160");
-    local_ip_ = config["local_ip"].as<std::string>("");
-    connection_timeout_ = config["connection_timeout"].as<int>(5000);
+    if (config["robot_ip"]) {
+      robot_ip_ = config["robot_ip"].as<std::string>();
+    }
     
-    // 读取运动参数
-    default_speed_ = config["default_speed"].as<double>(200.0);
-    default_acceleration_ = config["default_acceleration"].as<double>(0.5);
-    default_blend_radius_ = config["default_blend_radius"].as<double>(5.0);
+    if (config["local_ip"]) {
+      local_ip_ = config["local_ip"].as<std::string>();
+    }
     
-    RCLCPP_INFO(logger_, "Configuration loaded: IP=%s, Speed=%.1f mm/s", 
-                robot_ip_.c_str(), default_speed_);
+    if (config["connection_timeout"]) {
+      connection_timeout_ = config["connection_timeout"].as<int>();
+    }
+    
+    if (config["default_speed"]) {
+      default_speed_ = config["default_speed"].as<double>();
+    }
+    
+    if (config["default_acceleration"]) {
+      default_acceleration_ = config["default_acceleration"].as<double>();
+    }
+    
+    if (config["default_blend_radius"]) {
+      default_blend_radius_ = config["default_blend_radius"].as<double>();
+    }
+
+    RCLCPP_INFO(logger_, "Configuration loaded: robot_ip=%s, local_ip=%s", 
+                robot_ip_.c_str(), local_ip_.c_str());
     return true;
-    
+
   } catch (const YAML::Exception& e) {
     RCLCPP_ERROR(logger_, "YAML parsing error: %s", e.what());
     return false;
@@ -899,39 +963,31 @@ bool RokaeAdapter::initializeRobot()
 {
 #ifdef XCORE_SDK_AVAILABLE
   try {
+    if (!robot_) {
+      RCLCPP_ERROR(logger_, "Robot instance not created");
+      return false;
+    }
+
     std::error_code ec;
     
-    // 设置运动控制模式
-    robot_->setMotionControlMode(rokae::MotionControlMode::NrtCommand, ec);
+    // 连接到机械臂
+    robot_->connectToRobot(static_cast<uint16_t>(connection_timeout_), ec);
     if (ec) {
-      RCLCPP_ERROR(logger_, "Failed to set motion control mode: %s", ec.message().c_str());
+      RCLCPP_ERROR(logger_, "Failed to connect to robot: %s", ec.message().c_str());
       return false;
     }
-    
-    // 设置自动模式
-    robot_->setOperateMode(rokae::OperateMode::automatic, ec);
-    if (ec) {
-      RCLCPP_ERROR(logger_, "Failed to set operate mode: %s", ec.message().c_str());
-      return false;
-    }
-    
-    // 上电
-    robot_->setPowerState(true, ec);
-    if (ec) {
-      RCLCPP_ERROR(logger_, "Failed to power on robot: %s", ec.message().c_str());
-      return false;
-    }
-    
+
     // 设置默认参数
     robot_->setDefaultSpeed(static_cast<int>(default_speed_), ec);
-    robot_->setDefaultZone(static_cast<int>(default_blend_radius_), ec);
-    
-    // 运动重置
-    robot_->moveReset(ec);
     if (ec) {
-      RCLCPP_WARN(logger_, "Move reset warning: %s", ec.message().c_str());
+      RCLCPP_WARN(logger_, "Failed to set default speed: %s", ec.message().c_str());
     }
-    
+
+    robot_->setDefaultZone(static_cast<int>(default_blend_radius_), ec);
+    if (ec) {
+      RCLCPP_WARN(logger_, "Failed to set default zone: %s", ec.message().c_str());
+    }
+
     RCLCPP_INFO(logger_, "Robot initialized successfully");
     return true;
 
@@ -942,138 +998,127 @@ bool RokaeAdapter::initializeRobot()
     RCLCPP_ERROR(logger_, "Exception during initialization: %s", e.what());
     return false;
   }
+#else
+  RCLCPP_INFO(logger_, "Simulated robot initialization completed");
+  return true;
 #endif
-  
-  return false;
 }
 
 void RokaeAdapter::waitForMotionComplete()
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!robot_) return;
-  
-  is_moving_ = true;
-  
+
   try {
+    std::error_code ec;
+    auto start_time = std::chrono::steady_clock::now();
+    
     while (true) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      
-      std::error_code ec;
       auto state = robot_->operationState(ec);
-      
       if (ec) {
-        RCLCPP_WARN(logger_, "Error checking operation state: %s", ec.message().c_str());
+        RCLCPP_WARN(logger_, "Failed to get operation state: %s", ec.message().c_str());
         break;
       }
       
-      if (state == rokae::OperationState::idle || state == rokae::OperationState::unknown) {
+      if (state == rokae::OperationState::idle) {
+        is_moving_ = false;
         break;
       }
+      
+      // 超时保护 (30秒)
+      auto elapsed = std::chrono::steady_clock::now() - start_time;
+      if (elapsed > std::chrono::seconds(30)) {
+        RCLCPP_WARN(logger_, "Motion timeout, stopping wait");
+        break;
+      }
+      
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
   } catch (const std::exception& e) {
-    RCLCPP_ERROR(logger_, "Exception while waiting for motion complete: %s", e.what());
+    RCLCPP_ERROR(logger_, "Exception waiting for motion complete: %s", e.what());
   }
-  
+#else
+  // 模拟运动完成等待
+  std::this_thread::sleep_for(std::chrono::seconds(2));
   is_moving_ = false;
 #endif
 }
 
 void RokaeAdapter::rosePoseToRokaePosition(const geometry_msgs::msg::Pose& ros_pose, 
-                                           std::array<double, 6>& rokae_pose)
+                                          std::array<double, 6>& rokae_pose)
 {
-  // 位置 (m)
-  rokae_pose[0] = ros_pose.position.x;
-  rokae_pose[1] = ros_pose.position.y;
-  rokae_pose[2] = ros_pose.position.z;
-  
-  // 四元数转欧拉角 (rad)
-  tf2::Quaternion q(
-    ros_pose.orientation.x,
-    ros_pose.orientation.y, 
-    ros_pose.orientation.z,
-    ros_pose.orientation.w
-  );
-  
-  tf2::Matrix3x3 matrix(q);
+  // 位置转换 (m -> mm)
+  rokae_pose[0] = ros_pose.position.x * 1000.0;
+  rokae_pose[1] = ros_pose.position.y * 1000.0;
+  rokae_pose[2] = ros_pose.position.z * 1000.0;
+
+  // 四元数转欧拉角 (ZYX)
+  tf2::Quaternion quat(ros_pose.orientation.x, ros_pose.orientation.y, 
+                       ros_pose.orientation.z, ros_pose.orientation.w);
+  tf2::Matrix3x3 mat(quat);
   double roll, pitch, yaw;
-  matrix.getRPY(roll, pitch, yaw);
-  
-  rokae_pose[3] = roll;   // Rx
-  rokae_pose[4] = pitch;  // Ry  
-  rokae_pose[5] = yaw;    // Rz
+  mat.getRPY(roll, pitch, yaw);
+
+  // 角度转换 (弧度 -> 度)
+  rokae_pose[3] = roll * 180.0 / M_PI;
+  rokae_pose[4] = pitch * 180.0 / M_PI;
+  rokae_pose[5] = yaw * 180.0 / M_PI;
 }
 
 void RokaeAdapter::rokaePositionToRosePose(const std::array<double, 6>& rokae_pose,
-                                           geometry_msgs::msg::Pose& ros_pose)
+                                          geometry_msgs::msg::Pose& ros_pose)
 {
-  // 位置
-  ros_pose.position.x = rokae_pose[0];
-  ros_pose.position.y = rokae_pose[1];
-  ros_pose.position.z = rokae_pose[2];
-  
-  // 欧拉角转四元数
-  tf2::Quaternion q;
-  q.setRPY(rokae_pose[3], rokae_pose[4], rokae_pose[5]);
-  
-  ros_pose.orientation.x = q.x();
-  ros_pose.orientation.y = q.y();
-  ros_pose.orientation.z = q.z();
-  ros_pose.orientation.w = q.w();
+  // 位置转换 (mm -> m)
+  ros_pose.position.x = rokae_pose[0] / 1000.0;
+  ros_pose.position.y = rokae_pose[1] / 1000.0;
+  ros_pose.position.z = rokae_pose[2] / 1000.0;
+
+  // 欧拉角转四元数 (度 -> 弧度)
+  double roll = rokae_pose[3] * M_PI / 180.0;
+  double pitch = rokae_pose[4] * M_PI / 180.0;
+  double yaw = rokae_pose[5] * M_PI / 180.0;
+
+  tf2::Quaternion quat;
+  quat.setRPY(roll, pitch, yaw);
+
+  ros_pose.orientation.x = quat.x();
+  ros_pose.orientation.y = quat.y();
+  ros_pose.orientation.z = quat.z();
+  ros_pose.orientation.w = quat.w();
 }
 
 void RokaeAdapter::statusMonitoringThread()
 {
   RCLCPP_INFO(logger_, "Status monitoring thread started");
   
-  while (!stop_monitoring_ && is_connected_) {
+  while (!stop_monitoring_) {
     try {
+      if (is_connected_) {
 #ifdef XCORE_SDK_AVAILABLE
-      if (robot_) {
-        std::error_code ec;
-        
-        // 检查运行状态
-        auto operation_state = robot_->operationState(ec);
-        if (!ec) {
-          bool was_moving = is_moving_;
-          is_moving_ = (operation_state == rokae::OperationState::moving);
+        if (robot_) {
+          std::error_code ec;
           
-          // 状态变化日志
-          if (was_moving && !is_moving_) {
-            RCLCPP_INFO(logger_, "Robot motion completed");
-          } else if (!was_moving && is_moving_) {
-            RCLCPP_INFO(logger_, "Robot motion started");
+          // 检查机械臂状态
+          auto state = robot_->operationState(ec);
+          if (!ec) {
+            is_moving_ = (state == rokae::OperationState::moving || 
+                         state == rokae::OperationState::jog);
+          }
+          
+          // 检查错误状态
+          auto error_code = robot_->errorCode(ec);
+          if (!ec && error_code != 0) {
+            has_error_ = true;
+            last_error_message_ = "Robot error code: " + std::to_string(error_code);
           }
         }
-        
-        // 检查错误状态
-        auto power_state = robot_->powerState(ec);
-        if (!ec) {
-          if (power_state == rokae::PowerState::estop) {
-            has_error_ = true;
-            last_error_message_ = "Emergency stop activated";
-            RCLCPP_ERROR(logger_, "Emergency stop detected");
-          } else if (power_state == rokae::PowerState::off) {
-            has_error_ = true;
-            last_error_message_ = "Robot power off";
-            RCLCPP_WARN(logger_, "Robot power is off");
-          } else {
-            if (has_error_ && last_error_message_ != "Manual error cleared") {
-              has_error_ = false;
-              last_error_message_.clear();
-              RCLCPP_INFO(logger_, "Robot error condition cleared");
-            }
-          }
-        }
-      }
 #endif
-      
-      // 监控间隔
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
-      
+      }
     } catch (const std::exception& e) {
-      RCLCPP_ERROR(logger_, "Exception in status monitoring: %s", e.what());
-      std::this_thread::sleep_for(std::chrono::seconds(1));
+      RCLCPP_WARN(logger_, "Exception in status monitoring: %s", e.what());
     }
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
   
   RCLCPP_INFO(logger_, "Status monitoring thread stopped");

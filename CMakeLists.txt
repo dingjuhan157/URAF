@@ -197,58 +197,6 @@ ament_target_dependencies(${PROJECT_NAME}_core ${dependencies})
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(${PROJECT_NAME}_core "${cpp_typesupport_target}")
 
-# ==================== 创建RokaeAdapter库 ====================
-
-# 创建一个基础的RokaeAdapter实现（如果不存在）
-if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/rokae_adapter.cpp)
-    # 创建临时的RokaeAdapter实现
-    file(WRITE ${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/rokae_adapter.cpp
-"#include \"elu_robot_arm_framework/adapters/rokae_adapter.hpp\"
-#include <rclcpp/rclcpp.hpp>
-
-namespace elu_robot_arm_framework {
-
-RokaeAdapter::RokaeAdapter() 
-  : is_connected_(false)
-  , logger_(rclcpp::get_logger(\"rokae_adapter\"))
-{
-  RCLCPP_INFO(logger_, \"RokaeAdapter created\");
-}
-
-RokaeAdapter::~RokaeAdapter() {
-  RCLCPP_INFO(logger_, \"RokaeAdapter destroyed\");
-}
-
-void RokaeAdapter::setBlendRadius(double radius) {
-  blend_radius_ = radius;
-  RCLCPP_INFO(logger_, \"Blend radius set to: %.3f\", radius);
-}
-
-std::vector<double> RokaeAdapter::getCurrentJoints() {
-  return std::vector<double>(6, 0.0);
-}
-
-geometry_msgs::msg::Pose RokaeAdapter::getCurrentPose() {
-  geometry_msgs::msg::Pose pose;
-  pose.position.x = 0.0;
-  pose.position.y = 0.0;
-  pose.position.z = 0.5;
-  pose.orientation.w = 1.0;
-  return pose;
-}
-
-bool RokaeAdapter::moveToJointAsync(const std::vector<double>& joints) {
-  if (joints.size() != 6) {
-    RCLCPP_ERROR(logger_, \"Invalid joint array size\");
-    return false;
-  }
-  RCLCPP_INFO(logger_, \"Moving to joint position (async)\");
-  return true;
-}
-
-} // namespace elu_robot_arm_framework
-")
-endif()
 
 # 检查rokae_adapter.cpp是否存在
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/rokae_adapter.cpp)
@@ -276,16 +224,21 @@ endif()
 # ==================== 创建RokaeMotionPlanner库 ====================
 
 # 检查是否存在RokaeMotionPlanner源文件
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/motion_planner/rokae_motion_planner.cpp OR 
-   EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/planners/rokae_motion_planner.cpp)
-   
-    # 确定正确的源文件路径
-    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/motion_planner/rokae_motion_planner.cpp)
-        set(ROKAE_MOTION_PLANNER_SRC src/motion_planner/rokae_motion_planner.cpp)
-    else()
-        set(ROKAE_MOTION_PLANNER_SRC src/planners/rokae_motion_planner.cpp)
-    endif()
-    
+set(ROKAE_MOTION_PLANNER_SRC "")
+
+# 首先检查用户指定的路径
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/planners/rokae_motion_planner.cpp)
+    set(ROKAE_MOTION_PLANNER_SRC src/planners/rokae_motion_planner.cpp)
+    message(STATUS "Found RokaeMotionPlanner at: src/planners/rokae_motion_planner.cpp")
+else()
+    message(WARNING "RokaeMotionPlanner source file not found. Checked paths:")
+    message(WARNING "  - src/planners/rokae_motion_planner.cpp")
+    message(WARNING "  - src/motion_planner/rokae_motion_planner.cpp")
+    message(WARNING "Please ensure the file exists at one of these locations.")
+endif()
+
+# 只有在找到源文件时才创建库
+if(NOT ROKAE_MOTION_PLANNER_SRC STREQUAL "")
     add_library(rokae_motion_planner SHARED
       ${ROKAE_MOTION_PLANNER_SRC}
     )
@@ -307,9 +260,10 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/motion_planner/rokae_motion_planner.cp
     
     ament_target_dependencies(rokae_motion_planner ${dependencies})
     set(ROKAE_MOTION_PLANNER_AVAILABLE TRUE)
+    message(STATUS "RokaeMotionPlanner library will be built")
 else()
-    message(WARNING "RokaeMotionPlanner source file not found.")
     set(ROKAE_MOTION_PLANNER_AVAILABLE FALSE)
+    message(STATUS "RokaeMotionPlanner library will NOT be built - source file missing")
 endif()
 
 # ==================== 构建适配器插件 ====================

@@ -1,4 +1,5 @@
 #include "elu_robot_arm_framework/planners/rokae_motion_planner.hpp"
+#include "elu_robot_arm_framework/adapters/rokae_adapter.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 namespace elu_robot_arm_framework
@@ -29,7 +30,7 @@ RokaeMotionPlanner::RokaeMotionPlanner(std::shared_ptr<RokaeAdapter> robot_adapt
 
 RokaeMotionPlanner::~RokaeMotionPlanner()
 {
-  RCLCPP_INFO(logger_, "destroyed");
+  RCLCPP_INFO(logger_, "RokaeMotionPlanner destroyed");
 }
 
 bool RokaeMotionPlanner::planJointTrajectory(const std::vector<double>& start_joints,
@@ -91,8 +92,8 @@ bool RokaeMotionPlanner::planJointTrajectory(const std::vector<double>& start_jo
   }
 }
 
-bool RokaeMotionPlanner::planLinearTrajectory(const geometry_msgs::msg::Pose& start_pose,
-                                             const geometry_msgs::msg::Pose& target_pose,
+bool RokaeMotionPlanner::planLinearTrajectory(const geometry_msgs::msg::Pose& /* start_pose */,
+                                             const geometry_msgs::msg::Pose& /* target_pose */,
                                              double speed_ratio,
                                              trajectory_msgs::msg::JointTrajectory& trajectory)
 {
@@ -100,7 +101,8 @@ bool RokaeMotionPlanner::planLinearTrajectory(const geometry_msgs::msg::Pose& st
   std::vector<double> start_joints, target_joints;
   
   // 这里需要逆运动学计算，简化为获取当前关节角度
-  if (!getCurrentState(start_joints, start_pose)) {
+  geometry_msgs::msg::Pose current_pose;
+  if (!getCurrentState(start_joints, current_pose)) {
     RCLCPP_ERROR(logger_, "Failed to get current joint state for linear trajectory");
     return false;
   }
@@ -112,7 +114,7 @@ bool RokaeMotionPlanner::planLinearTrajectory(const geometry_msgs::msg::Pose& st
 }
 
 bool RokaeMotionPlanner::planCircularTrajectory(const geometry_msgs::msg::Pose& start_pose,
-                                               const geometry_msgs::msg::Pose& aux_pose,
+                                               const geometry_msgs::msg::Pose& /* aux_pose */,
                                                const geometry_msgs::msg::Pose& target_pose,
                                                double speed_ratio,
                                                trajectory_msgs::msg::JointTrajectory& trajectory)
@@ -141,12 +143,16 @@ bool RokaeMotionPlanner::planMultiSegmentTrajectory(const std::vector<Trajectory
                            segment.start_point.speed_ratio, segment_traj)) {
       // 添加轨迹点，调整时间偏移
       for (auto& point : segment_traj.points) {
-        point.time_from_start = rclcpp::Duration::from_seconds(
-          total_time + point.time_from_start.seconds());
+        // Fix: Convert Duration to seconds properly
+        double point_time_seconds = point.time_from_start.sec + point.time_from_start.nanosec / 1e9;
+        point.time_from_start = rclcpp::Duration::from_seconds(total_time + point_time_seconds);
         trajectory.points.push_back(point);
       }
       
-      total_time += segment_traj.points.back().time_from_start.seconds();
+      // Fix: Convert Duration to seconds properly
+      const auto& last_point = segment_traj.points.back();
+      double last_point_time_seconds = last_point.time_from_start.sec + last_point.time_from_start.nanosec / 1e9;
+      total_time += last_point_time_seconds;
     }
   }
   
@@ -207,7 +213,7 @@ bool RokaeMotionPlanner::validateTrajectory(const trajectory_msgs::msg::JointTra
 }
 
 bool RokaeMotionPlanner::checkPathCollision(const std::vector<double>& start_joints,
-                                           const geometry_msgs::msg::Pose& target_pose,
+                                           const geometry_msgs::msg::Pose& /* target_pose */,
                                            std::vector<double>& target_joints)
 {
   // 简化实现：假设无碰撞
@@ -227,7 +233,7 @@ bool RokaeMotionPlanner::optimizeTrajectoryTiming(const trajectory_msgs::msg::Jo
   return true;
 }
 
-bool RokaeMotionPlanner::forwardKinematics(const std::vector<double>& joints,
+bool RokaeMotionPlanner::forwardKinematics(const std::vector<double>& /* joints */,
                                           geometry_msgs::msg::Pose& pose)
 {
   if (!robot_adapter_) {
@@ -240,7 +246,7 @@ bool RokaeMotionPlanner::forwardKinematics(const std::vector<double>& joints,
   return true;
 }
 
-bool RokaeMotionPlanner::inverseKinematics(const geometry_msgs::msg::Pose& pose,
+bool RokaeMotionPlanner::inverseKinematics(const geometry_msgs::msg::Pose& /* pose */,
                                           const std::vector<double>& seed_joints,
                                           std::vector<double>& joints)
 {
@@ -298,7 +304,7 @@ bool RokaeMotionPlanner::getCurrentState(std::vector<double>& current_joints,
   }
 }
 
-bool RokaeMotionPlanner::convertTrajectoryToRokaeCommands(const trajectory_msgs::msg::JointTrajectory& trajectory)
+bool RokaeMotionPlanner::convertTrajectoryToRokaeCommands(const trajectory_msgs::msg::JointTrajectory& /* trajectory */)
 {
   // 简化实现
   RCLCPP_INFO(logger_, "Converting trajectory to Rokae commands (simplified implementation)");

@@ -59,9 +59,6 @@ source install/setup.bash
 ```bash
 # 启动单机械臂控制
 ros2 launch elu_robot_arm_framework elu_robot_framework.launch.py
-
-# 启动多机械臂控制
-ros2 launch elu_robot_arm_framework multi_arm_control.launch.py
 ```
 
 ## 使用指南
