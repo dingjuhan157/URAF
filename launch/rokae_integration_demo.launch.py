@@ -56,7 +56,7 @@ def generate_launch_description():
     # 是否启用RViz
     use_rviz_arg = DeclareLaunchArgument(
         'use_rviz',
-        default_value='true',
+        default_value='false',
         description='Launch RViz for visualization'
     )
     
@@ -65,6 +65,13 @@ def generate_launch_description():
         'use_rqt',
         default_value='false',
         description='Launch rqt tools for monitoring'
+    )
+
+    # 是否启用URDF可视化
+    use_urdf_arg = DeclareLaunchArgument(
+        'use_urdf',
+        default_value='false',
+        description='Launch robot state publisher with URDF (for future implementation)'
     )
 
     # 主要节点：Rokae集成示例
@@ -83,28 +90,31 @@ def generate_launch_description():
         arguments=['--ros-args', '--log-level', LaunchConfiguration('log_level')],
     )
 
-    # Robot State Publisher (用于TF变换)
-    robot_state_publisher_node = Node(
-        package='robot_state_publisher',
-        executable='robot_state_publisher',
-        name='robot_state_publisher',
-        output='screen',
-        parameters=[{
-            'robot_description': get_robot_description(),
-            'use_sim_time': False,
-        }],
-    )
+    # TODO: 未来添加URDF支持时启用
+    # Robot State Publisher (用于TF变换) - 当前已禁用，等待URDF文件完成
+    # robot_state_publisher_node = Node(
+    #     package='robot_state_publisher',
+    #     executable='robot_state_publisher',
+    #     name='robot_state_publisher',
+    #     output='screen',
+    #     parameters=[{
+    #         'robot_description': get_robot_description(),
+    #         'use_sim_time': False,
+    #     }],
+    #     condition=IfCondition(LaunchConfiguration('use_urdf')),
+    # )
 
-    # Joint State Publisher (如果需要手动控制关节)
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher_gui',
-        executable='joint_state_publisher_gui',
-        name='joint_state_publisher_gui',
-        output='screen',
-        condition=IfCondition(PythonExpression([
-            "'", LaunchConfiguration('demo_mode'), "' == 'false'"
-        ])),
-    )
+    # Joint State Publisher (如果需要手动控制关节) - 当前已禁用
+    # joint_state_publisher_node = Node(
+    #     package='joint_state_publisher_gui',
+    #     executable='joint_state_publisher_gui',
+    #     name='joint_state_publisher_gui',
+    #     output='screen',
+    #     condition=IfCondition(PythonExpression([
+    #         "'", LaunchConfiguration('demo_mode'), "' == 'false' and '", 
+    #         LaunchConfiguration('use_urdf'), "' == 'true'"
+    #     ])),
+    # )
 
     # RViz2 可视化
     rviz_config_file = os.path.join(
@@ -165,6 +175,7 @@ def generate_launch_description():
             'Demo Mode: ', LaunchConfiguration('demo_mode'), '\n',
             'Auto Start: ', LaunchConfiguration('auto_start'), '\n',
             'Log Level: ', LaunchConfiguration('log_level'), '\n',
+            'URDF Enabled: ', LaunchConfiguration('use_urdf'), '\n',
             '================================\n',
             '📋 Available services:\n',
             '  ros2 service call /connect_robot std_srvs/srv/Trigger\n',
@@ -175,6 +186,8 @@ def generate_launch_description():
             '  ros2 topic echo /robot_status\n',
             '🔧 Control commands:\n',
             '  ros2 topic pub /motion_command elu_robot_arm_framework/msg/MotionCommand ...\n',
+            '📝 Note: URDF visualization currently disabled\n',
+            '  Enable with: use_urdf:=true (when URDF files are ready)\n',
             '================================\n'
         ]
     )
@@ -189,14 +202,15 @@ def generate_launch_description():
         log_level_arg,
         use_rviz_arg,
         use_rqt_arg,
+        use_urdf_arg,  # 保留接口参数
         
         # 启动信息
         startup_info,
         
         # 节点
         rokae_integration_node,
-        robot_state_publisher_node,
-        joint_state_publisher_node,
+        # robot_state_publisher_node,  # 已注释，等待URDF文件
+        # joint_state_publisher_node,  # 已注释，等待URDF文件
         status_monitor_node,
         
         # 可视化工具
@@ -206,162 +220,78 @@ def generate_launch_description():
     ])
 
 def get_robot_description():
-    """获取机器人URDF描述"""
-    pkg_share = FindPackageShare('elu_robot_arm_framework')
-    urdf_file = os.path.join(
-        pkg_share.find('elu_robot_arm_framework'),
-        'urdf', 'rokae_cr7.urdf.xacro'
-    )
+    """
+    获取机器人URDF描述
     
-    # 简化的URDF，实际应该从文件读取
-    urdf_content = """<?xml version="1.0"?>
-<robot name="rokae_cr7" xmlns:xacro="http://www.ros.org/wiki/xacro">
-  
-  <!-- Base Link -->
-  <link name="base_link">
-    <visual>
-      <geometry>
-        <cylinder radius="0.1" length="0.1"/>
-      </geometry>
-      <material name="blue">
-        <color rgba="0 0 1 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <!-- Joints and Links for 6-DOF arm -->
-  <joint name="joint1" type="revolute">
-    <parent link="base_link"/>
-    <child link="link1"/>
-    <origin xyz="0 0 0.1" rpy="0 0 0"/>
-    <axis xyz="0 0 1"/>
-    <limit lower="-6.28" upper="6.28" effort="100" velocity="2.0"/>
-  </joint>
-
-  <link name="link1">
-    <visual>
-      <geometry>
-        <cylinder radius="0.05" length="0.2"/>
-      </geometry>
-      <material name="red">
-        <color rgba="1 0 0 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="joint2" type="revolute">
-    <parent link="link1"/>
-    <child link="link2"/>
-    <origin xyz="0 0 0.2" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="-6.28" upper="6.28" effort="100" velocity="2.0"/>
-  </joint>
-
-  <link name="link2">
-    <visual>
-      <geometry>
-        <cylinder radius="0.04" length="0.3"/>
-      </geometry>
-      <material name="green">
-        <color rgba="0 1 0 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="joint3" type="revolute">
-    <parent link="link2"/>
-    <child link="link3"/>
-    <origin xyz="0 0 0.3" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="-3.14" upper="3.14" effort="50" velocity="2.0"/>
-  </joint>
-
-  <link name="link3">
-    <visual>
-      <geometry>
-        <cylinder radius="0.035" length="0.25"/>
-      </geometry>
-      <material name="yellow">
-        <color rgba="1 1 0 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="joint4" type="revolute">
-    <parent link="link3"/>
-    <child link="link4"/>
-    <origin xyz="0 0 0.25" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
-    <limit lower="-6.28" upper="6.28" effort="50" velocity="3.0"/>
-  </joint>
-
-  <link name="link4">
-    <visual>
-      <geometry>
-        <cylinder radius="0.03" length="0.15"/>
-      </geometry>
-      <material name="cyan">
-        <color rgba="0 1 1 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="joint5" type="revolute">
-    <parent link="link4"/>
-    <child link="link5"/>
-    <origin xyz="0 0 0.15" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-    <limit lower="-6.28" upper="6.28" effort="30" velocity="3.0"/>
-  </joint>
-
-  <link name="link5">
-    <visual>
-      <geometry>
-        <cylinder radius="0.025" length="0.1"/>
-      </geometry>
-      <material name="magenta">
-        <color rgba="1 0 1 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="joint6" type="revolute">
-    <parent link="link5"/>
-    <child link="link6"/>
-    <origin xyz="0 0 0.1" rpy="0 0 0"/>
-    <axis xyz="1 0 0"/>
-    <limit lower="-6.28" upper="6.28" effort="20" velocity="3.0"/>
-  </joint>
-
-  <link name="link6">
-    <visual>
-      <geometry>
-        <cylinder radius="0.02" length="0.05"/>
-      </geometry>
-      <material name="white">
-        <color rgba="1 1 1 1"/>
-      </material>
-    </visual>
-  </link>
-
-  <!-- End effector -->
-  <joint name="ee_joint" type="fixed">
-    <parent link="link6"/>
-    <child link="end_effector"/>
-    <origin xyz="0 0 0.05" rpy="0 0 0"/>
-  </joint>
-
-  <link name="end_effector">
-    <visual>
-      <geometry>
-        <sphere radius="0.015"/>
-      </geometry>
-      <material name="black">
-        <color rgba="0 0 0 1"/>
-      </material>
-    </visual>
-  </link>
-
-</robot>"""
+    TODO: 实现URDF文件加载
+    当URDF文件准备好时，可以按以下方式实现：
     
-    return urdf_content
+    1. 从文件加载URDF:
+       pkg_share = FindPackageShare('elu_robot_arm_framework')
+       urdf_file = os.path.join(
+           pkg_share.find('elu_robot_arm_framework'),
+           'urdf', 'rokae_cr7.urdf.xacro'
+       )
+       with open(urdf_file, 'r') as f:
+           return f.read()
+    
+    2. 处理xacro文件:
+       from launch.substitutions import Command
+       return Command(['xacro ', urdf_file])
+    
+    Returns:
+        str: 机器人URDF描述（当前为空，等待实现）
+    """
+    # 当前返回空字符串，等待URDF文件准备完成
+    return ""
+
+def load_urdf_from_file(urdf_file_path):
+    """
+    从文件加载URDF描述
+    
+    Args:
+        urdf_file_path (str): URDF文件路径
+        
+    Returns:
+        str: URDF内容
+        
+    TODO: 实现URDF文件验证和错误处理
+    """
+    try:
+        with open(urdf_file_path, 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        print(f"URDF文件未找到: {urdf_file_path}")
+        return ""
+    except Exception as e:
+        print(f"加载URDF文件时出错: {e}")
+        return ""
+
+def process_xacro_file(xacro_file_path):
+    """
+    处理xacro文件生成URDF
+    
+    Args:
+        xacro_file_path (str): xacro文件路径
+        
+    Returns:
+        Command: 用于处理xacro的launch命令
+        
+    TODO: 实现xacro参数传递和错误处理
+    """
+    from launch.substitutions import Command
+    return Command(['xacro ', xacro_file_path])
+
+# 启用URDF时的使用示例:
+# 
+# 启动时设置参数:
+# ros2 launch elu_robot_arm_framework rokae_integration_demo.launch.py \
+#     use_urdf:=true \
+#     use_rviz:=true \
+#     demo_mode:=false
+#
+# 这将启动完整的可视化环境包括:
+# - Robot State Publisher (发布TF变换)
+# - Joint State Publisher GUI (手动关节控制)
+# - RViz (3D可视化)
+# - 机械臂控制节点

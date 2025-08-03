@@ -94,7 +94,7 @@ std::vector<double> RokaeAdapter::getJointLimits() const
   return limits;
 }
 
-bool RokaeAdapter::connect(const std::string& config_file)
+bool RokaeAdapter::connect(const std::string& /* config_file */)
 {
   if (is_connected_) {
     RCLCPP_WARN(logger_, "Already connected to robot");
@@ -184,7 +184,7 @@ bool RokaeAdapter::isConnected() const
   return is_connected_;
 }
 
-bool RokaeAdapter::moveToJoint(const std::vector<double>& joints, double speed_ratio)
+bool RokaeAdapter::moveToJoint(const std::vector<double>& /* joints */, double /* speed_ratio */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -234,7 +234,7 @@ bool RokaeAdapter::moveToJoint(const std::vector<double>& joints, double speed_r
   return true;
 }
 
-bool RokaeAdapter::moveToPose(const geometry_msgs::msg::Pose& pose, double speed_ratio)
+bool RokaeAdapter::moveToPose(const geometry_msgs::msg::Pose& /* pose */, double /* speed_ratio */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -283,7 +283,7 @@ bool RokaeAdapter::moveToPose(const geometry_msgs::msg::Pose& pose, double speed
   return true;
 }
 
-bool RokaeAdapter::linearMove(const geometry_msgs::msg::Pose& pose, double speed_ratio)
+bool RokaeAdapter::linearMove(const geometry_msgs::msg::Pose& /* pose */, double /* speed_ratio */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -332,7 +332,7 @@ bool RokaeAdapter::linearMove(const geometry_msgs::msg::Pose& pose, double speed
   return true;
 }
 
-bool RokaeAdapter::moveToJointAsync(const std::vector<double>& joints)
+bool RokaeAdapter::moveToJointAsync(const std::vector<double>& /* joints */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -383,7 +383,7 @@ bool RokaeAdapter::moveToJointAsync(const std::vector<double>& joints)
   return true;
 }
 
-bool RokaeAdapter::moveToPoseAsync(const geometry_msgs::msg::Pose& pose)
+bool RokaeAdapter::moveToPoseAsync(const geometry_msgs::msg::Pose& /* pose */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -682,7 +682,7 @@ bool RokaeAdapter::setBlendRadius(double radius)
   return true;
 }
 
-bool RokaeAdapter::setToolFrame(const geometry_msgs::msg::Pose& tool_frame)
+bool RokaeAdapter::setToolFrame(const geometry_msgs::msg::Pose& /* tool_frame */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
@@ -723,7 +723,7 @@ bool RokaeAdapter::setToolFrame(const geometry_msgs::msg::Pose& tool_frame)
   return true;
 }
 
-bool RokaeAdapter::setWorkspaceFrame(const geometry_msgs::msg::Pose& workspace_frame)
+bool RokaeAdapter::setWorkspaceFrame(const geometry_msgs::msg::Pose& /* workspace_frame */)
 {
 #ifdef XCORE_SDK_AVAILABLE
   if (!is_connected_ || !robot_) {
