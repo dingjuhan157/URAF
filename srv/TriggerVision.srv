@@ -1,0 +1,8 @@
+# srv/TriggerVision.srv - 触发视觉检测服务
+int32 station_id                        # 工位号
+float64 timeout                         # 超时时间(秒), 默认10.0
+---
+bool success                           # 是否成功
+string message                         # 响应消息
+int32 result_code                      # 结果代码
+geometry_msgs/Pose[] poses             # 检测到的位姿列表

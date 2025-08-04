@@ -1,0 +1,249 @@
+# vision_config.yaml - 视觉系统配置文件
+# 配置机器人视觉集成系统的参数
+
+# ==================== 视觉服务器配置 ====================
+vision_server:
+  # 服务器连接信息
+  ip_address: "192.168.1.100"          # 视觉服务器IP地址
+  port: 8080                           # 服务器端口号
+  
+  # 连接参数
+  connection_timeout: 5000             # 连接超时时间(毫秒)
+  socket_timeout: 5000                 # Socket超时时间(毫秒)
+  auto_connect: true                   # 启动时自动连接
+  
+  # 重连配置
+  auto_reconnect: true                 # 启用自动重连
+  reconnect_interval: 5.0              # 重连间隔(秒)
+  max_reconnect_attempts: 10           # 最大重连尝试次数 (0=无限制)
+  
+  # 心跳配置
+  heartbeat_enabled: true              # 启用心跳包
+  heartbeat_interval: 30.0             # 心跳间隔(秒)
+
+# ==================== 通信协议配置 ====================
+communication:
+  # 消息格式
+  message_delimiter: ","               # 字段分隔符
+  message_terminator: "\n"             # 消息终止符
+  coordinate_precision: 3              # 坐标精度(小数位数)
+  
+  # 缓冲区配置
+  receive_buffer_size: 4096            # 接收缓冲区大小(字节)
+  send_buffer_size: 1024               # 发送缓冲区大小(字节)
+  
+  # 超时配置
+  response_timeout: 15.0               # 响应超时时间(秒)
+  pose_query_timeout: 5.0              # 位姿查询超时(秒)
+
+# ==================== 工位配置 ====================
+stations:
+  # 工位列表及其配置
+  station_1:
+    id: 1
+    name: "抓取工位"
+    description: "主要抓取工位"
+    scan_position:                     # 扫描位置(关节角度，弧度)
+      joints: [0.0, -0.3, 0.5, 0.0, 1.57, 0.0]
+    approach_height: 0.05              # 预抓取高度(米)
+    place_offset: [0.2, 0.0, 0.0]     # 放置偏移(米)
+    
+  station_2:
+    id: 2
+    name: "检测工位"
+    description: "质量检测工位"
+    scan_position:
+      joints: [0.5, -0.2, 0.4, 0.0, 1.2, 0.5]
+    approach_height: 0.08
+    place_offset: [0.15, 0.1, 0.0]
+
+# ==================== 坐标系配置 ====================
+coordinate_systems:
+  # 机器人基坐标系
+  robot_base:
+    frame_id: "base_link"
+    
+  # 视觉坐标系
+  vision_camera:
+    frame_id: "camera_link"
+    # 相机相对于机器人基坐标系的变换
+    transform:
+      translation: [0.5, 0.0, 0.8]    # 相机位置(米)
+      rotation: [0.0, 0.0, 0.0, 1.0]  # 相机姿态(四元数)
+  
+  # 工作空间坐标系
+  workspace:
+    frame_id: "workspace"
+    # 工作空间限制
+    limits:
+      x_min: -0.5
+      x_max: 0.8
+      y_min: -0.6
+      y_max: 0.6
+      z_min: 0.0
+      z_max: 1.0
+
+# ==================== 视觉检测配置 ====================
+detection:
+  # 检测参数
+  min_confidence: 0.8                  # 最小置信度阈值
+  max_objects: 10                      # 最大检测对象数量
+  
+  # 滤波参数
+  position_filter:
+    enabled: true
+    window_size: 3                     # 滑动窗口大小
+    threshold: 0.01                    # 位置变化阈值(米)
+  
+  orientation_filter:
+    enabled: true
+    window_size: 3
+    threshold: 0.05                    # 姿态变化阈值(弧度)
+  
+  # 重复检测消除
+  duplicate_removal:
+    enabled: true
+    position_tolerance: 0.02           # 位置容差(米)
+    orientation_tolerance: 0.1         # 姿态容差(弧度)
+
+# ==================== 机器人运动配置 ====================
+robot_motion:
+  # 默认运动参数
+  default_speed: 0.3                   # 默认速度比例
+  default_acceleration: 0.3            # 默认加速度比例
+  
+  # 抓取运动参数
+  pick_motion:
+    approach_speed: 0.2                # 接近速度
+    pick_speed: 0.1                    # 抓取速度
+    retreat_speed: 0.2                 # 撤离速度
+  
+  # 放置运动参数
+  place_motion:
+    approach_speed: 0.2
+    place_speed: 0.1
+    retreat_speed: 0.3
+  
+  # 安全参数
+  safety:
+    emergency_stop_enabled: true
+    collision_detection: true
+    joint_limit_check: true
+
+# ==================== 演示模式配置 ====================
+demo_mode:
+  enabled: true                        # 启用演示模式
+  auto_start: true                     # 自动开始演示
+  
+  # 演示步骤配置
+  steps:
+    move_to_scan:
+      duration: 8.0                    # 步骤持续时间(秒)
+      description: "移动到扫描位置"
+    
+    trigger_vision:
+      duration: 15.0
+      description: "触发视觉检测"
+      timeout: 15.0                    # 检测超时时间
+    
+    process_results:
+      duration: 3.0
+      description: "处理检测结果"
+    
+    pick_and_place:
+      duration: 20.0
+      description: "执行抓取放置"
+    
+    return_home:
+      duration: 10.0
+      description: "回到初始位置"
+  
+  # 循环配置
+  loop_demo: false                     # 是否循环演示
+  loop_interval: 5.0                   # 循环间隔(秒)
+
+# ==================== 日志配置 ====================
+logging:
+  # 日志级别
+  level: "info"                        # debug, info, warn, error
+  
+  # 模块日志级别
+  modules:
+    vision_communication: "info"
+    tcp_client: "warn"
+    robot_control: "info"
+    demo_sequence: "info"
+  
+  # 文件日志
+  file_logging:
+    enabled: false
+    directory: "/tmp/elu_robot_logs"
+    max_file_size: "10MB"
+    max_files: 5
+
+# ==================== 诊断配置 ====================
+diagnostics:
+  enabled: true                        # 启用诊断
+  
+  # 诊断频率
+  update_rate: 2.0                     # 诊断更新频率(Hz)
+  
+  # 监控项目
+  monitors:
+    tcp_connection: true               # TCP连接状态
+    robot_status: true                 # 机器人状态
+    vision_results: true               # 视觉检测结果
+    motion_execution: true             # 运动执行状态
+  
+  # 告警阈值
+  thresholds:
+    connection_timeout: 10.0           # 连接超时告警(秒)
+    vision_timeout: 20.0               # 视觉检测超时告警(秒)
+    motion_timeout: 30.0               # 运动超时告警(秒)
+
+# ==================== 开发调试配置 ====================
+debug:
+  # 调试模式
+  enabled: false                       # 启用调试模式
+  
+  # 模拟配置
+  simulation_mode: false               # 仿真模式
+  mock_vision_server: false           # 模拟视觉服务器
+  
+  # 测试数据
+  test_detection_results:
+    - code: 2
+      poses:
+        - position: [0.4, 0.2, 0.1]
+          orientation: [0.0, 0.0, 0.0, 1.0]
+        - position: [0.5, -0.1, 0.12]
+          orientation: [0.0, 0.0, 0.707, 0.707]
+  
+  # 性能监控
+  performance_monitoring:
+    enabled: false
+    log_timing: false
+    profile_memory: false
+
+# ==================== 用户自定义配置 ====================
+user_config:
+  # 用户可以在这里添加自定义配置
+  # 这些配置会被传递给相应的节点
+  
+  # 示例：自定义抓取策略
+  pick_strategy: "closest_first"       # closest_first, largest_first, custom
+  
+  # 示例：自定义工具偏移
+  tool_offset: [0.0, 0.0, 0.15]       # 工具相对于法兰的偏移(米)
+  
+  # 示例：自定义速度配置
+  speed_profiles:
+    slow: 0.1
+    normal: 0.3
+    fast: 0.6
+
+# ==================== 配置验证 ====================
+# 注意：以下参数用于配置验证，请勿修改
+config_version: "1.0"
+schema_version: "1.0"
+last_modified: "2025-01-01"

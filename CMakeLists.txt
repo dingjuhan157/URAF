@@ -20,6 +20,7 @@ endif()
 # 机械臂SDK相关选项
 option(XCORE_LINK_SHARED_LIBS "Link shared library for xCore SDK" OFF)
 option(XCORE_USE_XMATE_MODEL "Use xMateModel library for kinematics and dynamics" OFF)
+option(BUILD_VISION_SUPPORT "Build vision communication support" ON)
 
 # 查找ROS2依赖包
 find_package(ament_cmake REQUIRED)
@@ -50,11 +51,13 @@ find_package(rosidl_default_generators REQUIRED)
 set(msg_files
   "msg/MotionCommand.msg"
   "msg/RobotStatus.msg"
+  "msg/VisionResult.msg"
 )
 
 set(srv_files
   "srv/SwitchRobot.srv"
   "srv/ExecuteMotion.srv"
+  "srv/TriggerVision.srv"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
@@ -70,6 +73,11 @@ include_directories(include)
 set(SDK_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/xcore_sdk/include)
 if(EXISTS ${SDK_INCLUDE_DIR})
     include_directories(${SDK_INCLUDE_DIR})
+    set(XCORE_SDK_FOUND TRUE)
+    message(STATUS "Found XCore SDK headers at: ${SDK_INCLUDE_DIR}")
+else()
+    set(XCORE_SDK_FOUND FALSE)
+    message(STATUS "XCore SDK headers not found - some features will be disabled")
 endif()
 
 # ROS2依赖列表
@@ -101,7 +109,7 @@ target_include_directories(eigen INTERFACE
 set(SDK_LIB_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/xcore_sdk/lib)
 
 # 创建机械臂SDK库目标
-if(EXISTS ${SDK_LIB_DIR})
+if(EXISTS ${SDK_LIB_DIR} AND XCORE_SDK_FOUND)
     # 导入的机械臂SDK库
     add_library(xcore_sdk_lib SHARED IMPORTED GLOBAL)
     add_library(xcore_sdk_static STATIC IMPORTED GLOBAL)
@@ -125,12 +133,16 @@ if(EXISTS ${SDK_LIB_DIR})
         )
     elseif(UNIX)
         set(XCORESDK_LIBRARY_DIR ${SDK_LIB_DIR}/Linux/${CMAKE_SYSTEM_PROCESSOR})
-        set_target_properties(xcore_sdk_lib PROPERTIES
-            IMPORTED_LOCATION ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.so
-        )
-        set_target_properties(xcore_sdk_static PROPERTIES
-            IMPORTED_LOCATION ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.a
-        )
+        if(EXISTS ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.so)
+            set_target_properties(xcore_sdk_lib PROPERTIES
+                IMPORTED_LOCATION ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.so
+            )
+        endif()
+        if(EXISTS ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.a)
+            set_target_properties(xcore_sdk_static PROPERTIES
+                IMPORTED_LOCATION ${XCORESDK_LIBRARY_DIR}/libxCoreSDK.a
+            )
+        endif()
     endif()
     
     # 创建别名用于链接
@@ -139,6 +151,12 @@ if(EXISTS ${SDK_LIB_DIR})
     else()
         add_library(XCoreSDK::XCoreSDK ALIAS xcore_sdk_static)
     endif()
+    
+    set(XCORE_SDK_LIBRARY_FOUND TRUE)
+    message(STATUS "XCore SDK libraries configured")
+else()
+    set(XCORE_SDK_LIBRARY_FOUND FALSE)
+    message(STATUS "XCore SDK libraries not found - building without SDK support")
 endif()
 
 # xMateModel库支持（可选）
@@ -153,6 +171,10 @@ if(XCORE_USE_XMATE_MODEL AND EXISTS ${SDK_LIB_DIR})
         set_target_properties(xmatemodel_lib PROPERTIES
             IMPORTED_LOCATION ${SDK_LIB_DIR}/Linux/x86_64/libxMateModel.a)
     endif()
+    
+    set(XMATEMODEL_AVAILABLE TRUE)
+else()
+    set(XMATEMODEL_AVAILABLE FALSE)
 endif()
 
 # ==================== 构建ROS2框架库 ====================
@@ -176,7 +198,7 @@ target_link_libraries(${PROJECT_NAME}_core
 )
 
 # 如果机械臂SDK可用，链接SDK库
-if(TARGET XCoreSDK::XCoreSDK)
+if(XCORE_SDK_LIBRARY_FOUND)
     target_link_libraries(${PROJECT_NAME}_core XCoreSDK::XCoreSDK eigen)
     target_compile_definitions(${PROJECT_NAME}_core PUBLIC 
         XCORE_SDK_AVAILABLE
@@ -184,7 +206,7 @@ if(TARGET XCoreSDK::XCoreSDK)
         $<$<CXX_COMPILER_ID:MSVC>:_USE_MATH_DEFINES>
     )
     
-    if(XCORE_USE_XMATE_MODEL AND TARGET xmatemodel_lib)
+    if(XMATEMODEL_AVAILABLE)
         target_link_libraries(${PROJECT_NAME}_core xmatemodel_lib)
         target_compile_definitions(${PROJECT_NAME}_core PUBLIC XMATEMODEL_LIB_SUPPORTED)
     endif()
@@ -197,6 +219,7 @@ ament_target_dependencies(${PROJECT_NAME}_core ${dependencies})
 rosidl_get_typesupport_target(cpp_typesupport_target ${PROJECT_NAME} "rosidl_typesupport_cpp")
 target_link_libraries(${PROJECT_NAME}_core "${cpp_typesupport_target}")
 
+# ==================== 构建Rokae适配器 ====================
 
 # 检查rokae_adapter.cpp是否存在
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/rokae_adapter.cpp)
@@ -211,30 +234,35 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/adapters/rokae_adapter.cpp)
     
     target_link_libraries(rokae_adapter ${PROJECT_NAME}_core)
     
-    if(TARGET XCoreSDK::XCoreSDK)
+    if(XCORE_SDK_LIBRARY_FOUND)
         target_link_libraries(rokae_adapter XCoreSDK::XCoreSDK eigen)
     endif()
     
     ament_target_dependencies(rokae_adapter ${dependencies})
     set(ROKAE_ADAPTER_AVAILABLE TRUE)
+    message(STATUS "RokaeAdapter library will be built")
 else()
     set(ROKAE_ADAPTER_AVAILABLE FALSE)
+    message(STATUS "RokaeAdapter library will NOT be built - source file missing")
+    message(STATUS "Expected location: src/adapters/rokae_adapter.cpp")
 endif()
 
-# ==================== 创建RokaeMotionPlanner库 ====================
+# ==================== 构建RokaeMotionPlanner库 ====================
 
 # 检查是否存在RokaeMotionPlanner源文件
 set(ROKAE_MOTION_PLANNER_SRC "")
 
-# 首先检查用户指定的路径
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/planners/rokae_motion_planner.cpp)
     set(ROKAE_MOTION_PLANNER_SRC src/planners/rokae_motion_planner.cpp)
     message(STATUS "Found RokaeMotionPlanner at: src/planners/rokae_motion_planner.cpp")
+elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/motion_planner/rokae_motion_planner.cpp)
+    set(ROKAE_MOTION_PLANNER_SRC src/motion_planner/rokae_motion_planner.cpp)
+    message(STATUS "Found RokaeMotionPlanner at: src/motion_planner/rokae_motion_planner.cpp")
 else()
-    message(WARNING "RokaeMotionPlanner source file not found. Checked paths:")
-    message(WARNING "  - src/planners/rokae_motion_planner.cpp")
-    message(WARNING "  - src/motion_planner/rokae_motion_planner.cpp")
-    message(WARNING "Please ensure the file exists at one of these locations.")
+    message(STATUS "RokaeMotionPlanner source file not found")
+    message(STATUS "Checked paths:")
+    message(STATUS "  - src/planners/rokae_motion_planner.cpp")
+    message(STATUS "  - src/motion_planner/rokae_motion_planner.cpp")
 endif()
 
 # 只有在找到源文件时才创建库
@@ -254,7 +282,7 @@ if(NOT ROKAE_MOTION_PLANNER_SRC STREQUAL "")
         target_link_libraries(rokae_motion_planner rokae_adapter)
     endif()
     
-    if(TARGET XCoreSDK::XCoreSDK)
+    if(XCORE_SDK_LIBRARY_FOUND)
         target_link_libraries(rokae_motion_planner XCoreSDK::XCoreSDK eigen)
     endif()
     
@@ -264,6 +292,74 @@ if(NOT ROKAE_MOTION_PLANNER_SRC STREQUAL "")
 else()
     set(ROKAE_MOTION_PLANNER_AVAILABLE FALSE)
     message(STATUS "RokaeMotionPlanner library will NOT be built - source file missing")
+endif()
+
+# ==================== 构建视觉通信模块 ====================
+
+if(BUILD_VISION_SUPPORT)
+    # 检查视觉通信源文件是否存在
+    set(VISION_COMM_SOURCES "")
+    
+    if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/vision/vision_communication.cpp)
+        list(APPEND VISION_COMM_SOURCES src/vision/vision_communication.cpp)
+        message(STATUS "Found VisionCommunication at: src/vision/vision_communication.cpp")
+    elseif(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/communication/vision_communication.cpp)
+        list(APPEND VISION_COMM_SOURCES src/communication/vision_communication.cpp)
+        message(STATUS "Found VisionCommunication at: src/communication/vision_communication.cpp")
+    else()
+        message(STATUS "VisionCommunication source file not found")
+        message(STATUS "Checked paths:")
+        message(STATUS "  - src/vision/vision_communication.cpp")
+        message(STATUS "  - src/communication/vision_communication.cpp")
+    endif()
+    
+    if(NOT VISION_COMM_SOURCES STREQUAL "")
+        # 构建视觉通信库
+        add_library(vision_communication SHARED
+          ${VISION_COMM_SOURCES}
+        )
+        
+        target_include_directories(vision_communication PUBLIC
+          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+          $<INSTALL_INTERFACE:include>
+        )
+        
+        target_link_libraries(vision_communication ${PROJECT_NAME}_core)
+        
+        # 如果Rokae适配器可用，链接它
+        if(ROKAE_ADAPTER_AVAILABLE)
+            target_link_libraries(vision_communication rokae_adapter)
+        endif()
+        
+        # 网络库支持
+        if(WIN32)
+            target_link_libraries(vision_communication ws2_32)
+            target_compile_definitions(vision_communication PRIVATE
+                WIN32_LEAN_AND_MEAN
+                _WIN32_WINNT=0x0601  # Windows 7+
+            )
+        else()
+            # Linux下可能需要的网络库
+            find_package(PkgConfig QUIET)
+            if(PkgConfig_FOUND)
+                pkg_check_modules(LIBUDEV libudev)
+                if(LIBUDEV_FOUND)
+                    target_link_libraries(vision_communication ${LIBUDEV_LIBRARIES})
+                    target_include_directories(vision_communication PRIVATE ${LIBUDEV_INCLUDE_DIRS})
+                endif()
+            endif()
+        endif()
+        
+        ament_target_dependencies(vision_communication ${dependencies})
+        set(VISION_COMMUNICATION_AVAILABLE TRUE)
+        message(STATUS "VisionCommunication library will be built")
+    else()
+        set(VISION_COMMUNICATION_AVAILABLE FALSE)
+        message(STATUS "VisionCommunication library will NOT be built - source file missing")
+    endif()
+else()
+    set(VISION_COMMUNICATION_AVAILABLE FALSE)
+    message(STATUS "Vision communication support disabled by BUILD_VISION_SUPPORT=OFF")
 endif()
 
 # ==================== 构建适配器插件 ====================
@@ -281,15 +377,21 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/elu_adapter/src/elu_adapter.cpp)
     
     target_link_libraries(elu_adapter ${PROJECT_NAME}_core)
     ament_target_dependencies(elu_adapter ${dependencies})
+    set(ELU_ADAPTER_AVAILABLE TRUE)
+else()
+    set(ELU_ADAPTER_AVAILABLE FALSE)
 endif()
 
 # ==================== 构建节点可执行文件 ====================
 
-# motion_controller_node
+# motion_controller_node  
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/motion_controller_node.cpp)
     add_executable(motion_controller_node src/nodes/motion_controller_node.cpp)
     target_link_libraries(motion_controller_node ${PROJECT_NAME}_core)
     ament_target_dependencies(motion_controller_node ${dependencies})
+    set(MOTION_CONTROLLER_NODE_AVAILABLE TRUE)
+else()
+    set(MOTION_CONTROLLER_NODE_AVAILABLE FALSE)
 endif()
 
 # status_monitor_node
@@ -297,35 +399,101 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/status_monitor_node.cpp)
     add_executable(status_monitor_node src/nodes/status_monitor_node.cpp)
     target_link_libraries(status_monitor_node ${PROJECT_NAME}_core)
     ament_target_dependencies(status_monitor_node ${dependencies})
+    set(STATUS_MONITOR_NODE_AVAILABLE TRUE)
+else()
+    set(STATUS_MONITOR_NODE_AVAILABLE FALSE)
 endif()
 
-# rokae_integration_example - 修复链接问题
-add_executable(rokae_integration_example src/nodes/rokae_integration_example.cpp)
-
-# 链接所有必要的库（按正确顺序）
-target_link_libraries(rokae_integration_example 
-  ${PROJECT_NAME}_core
-)
-
-# 条件链接可选库
-if(ROKAE_MOTION_PLANNER_AVAILABLE)
-    target_link_libraries(rokae_integration_example rokae_motion_planner)
+# rokae_integration_example
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/rokae_integration_example.cpp)
+    add_executable(rokae_integration_example src/nodes/rokae_integration_example.cpp)
+    
+    # 链接所有必要的库（按正确顺序）
+    target_link_libraries(rokae_integration_example ${PROJECT_NAME}_core)
+    
+    # 条件链接可选库
+    if(ROKAE_MOTION_PLANNER_AVAILABLE)
+        target_link_libraries(rokae_integration_example rokae_motion_planner)
+    endif()
+    
+    if(ROKAE_ADAPTER_AVAILABLE)
+        target_link_libraries(rokae_integration_example rokae_adapter)
+    endif()
+    
+    # 如果SDK可用，直接链接SDK
+    if(XCORE_SDK_LIBRARY_FOUND)
+        target_link_libraries(rokae_integration_example XCoreSDK::XCoreSDK eigen)
+    endif()
+    
+    ament_target_dependencies(rokae_integration_example ${dependencies})
+    set(ROKAE_INTEGRATION_EXAMPLE_AVAILABLE TRUE)
+else()
+    set(ROKAE_INTEGRATION_EXAMPLE_AVAILABLE FALSE)
 endif()
 
-if(ROKAE_ADAPTER_AVAILABLE)
-    target_link_libraries(rokae_integration_example rokae_adapter)
+# ==================== 视觉通信节点 ====================
+
+# 独立的视觉通信节点
+if(VISION_COMMUNICATION_AVAILABLE AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/vision_communication_node.cpp)
+    add_executable(vision_communication_node 
+      src/nodes/vision_communication_node.cpp
+    )
+    
+    target_link_libraries(vision_communication_node 
+      ${PROJECT_NAME}_core
+      vision_communication
+    )
+    
+    if(ROKAE_ADAPTER_AVAILABLE)
+        target_link_libraries(vision_communication_node rokae_adapter)
+    endif()
+    
+    # Windows网络库支持
+    if(WIN32)
+        target_link_libraries(vision_communication_node ws2_32)
+    endif()
+    
+    ament_target_dependencies(vision_communication_node ${dependencies})
+    set(VISION_COMMUNICATION_NODE_AVAILABLE TRUE)
+else()
+    set(VISION_COMMUNICATION_NODE_AVAILABLE FALSE)
 endif()
 
-# 如果SDK可用，直接链接SDK
-if(TARGET XCoreSDK::XCoreSDK)
-    target_link_libraries(rokae_integration_example XCoreSDK::XCoreSDK eigen)
+# 视觉集成示例节点
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/src/nodes/vision_integration_example.cpp)
+    add_executable(vision_integration_example 
+      src/nodes/vision_integration_example.cpp
+    )
+    
+    target_link_libraries(vision_integration_example ${PROJECT_NAME}_core)
+    
+    # 条件链接可选库
+    if(VISION_COMMUNICATION_AVAILABLE)
+        target_link_libraries(vision_integration_example vision_communication)
+    endif()
+    
+    if(ROKAE_ADAPTER_AVAILABLE)
+        target_link_libraries(vision_integration_example rokae_adapter)
+    endif()
+    
+    if(ROKAE_MOTION_PLANNER_AVAILABLE)
+        target_link_libraries(vision_integration_example rokae_motion_planner)
+    endif()
+    
+    # Windows网络库支持
+    if(WIN32)
+        target_link_libraries(vision_integration_example ws2_32)
+    endif()
+    
+    ament_target_dependencies(vision_integration_example ${dependencies})
+    set(VISION_INTEGRATION_EXAMPLE_AVAILABLE TRUE)
+else()
+    set(VISION_INTEGRATION_EXAMPLE_AVAILABLE FALSE)
 endif()
-
-ament_target_dependencies(rokae_integration_example ${dependencies})
 
 # ==================== 安装配置 ====================
 
-# 收集所有目标
+# 收集所有库目标
 set(INSTALL_TARGETS ${PROJECT_NAME}_core)
 
 if(ROKAE_ADAPTER_AVAILABLE)
@@ -336,7 +504,11 @@ if(ROKAE_MOTION_PLANNER_AVAILABLE)
     list(APPEND INSTALL_TARGETS rokae_motion_planner)
 endif()
 
-if(TARGET elu_adapter)
+if(VISION_COMMUNICATION_AVAILABLE)
+    list(APPEND INSTALL_TARGETS vision_communication)
+endif()
+
+if(ELU_ADAPTER_AVAILABLE)
     list(APPEND INSTALL_TARGETS elu_adapter)
 endif()
 
@@ -348,20 +520,35 @@ install(TARGETS ${INSTALL_TARGETS}
   RUNTIME DESTINATION bin
 )
 
-# 安装可执行文件
-set(EXECUTABLE_TARGETS rokae_integration_example)
+# 收集所有可执行文件目标
+set(EXECUTABLE_TARGETS)
 
-if(TARGET motion_controller_node)
+if(ROKAE_INTEGRATION_EXAMPLE_AVAILABLE)
+    list(APPEND EXECUTABLE_TARGETS rokae_integration_example)
+endif()
+
+if(MOTION_CONTROLLER_NODE_AVAILABLE)
     list(APPEND EXECUTABLE_TARGETS motion_controller_node)
 endif()
 
-if(TARGET status_monitor_node)
+if(STATUS_MONITOR_NODE_AVAILABLE)
     list(APPEND EXECUTABLE_TARGETS status_monitor_node)
 endif()
 
-install(TARGETS ${EXECUTABLE_TARGETS}
-  DESTINATION lib/${PROJECT_NAME}
-)
+if(VISION_COMMUNICATION_NODE_AVAILABLE)
+    list(APPEND EXECUTABLE_TARGETS vision_communication_node)
+endif()
+
+if(VISION_INTEGRATION_EXAMPLE_AVAILABLE)
+    list(APPEND EXECUTABLE_TARGETS vision_integration_example)
+endif()
+
+# 安装可执行文件
+if(EXECUTABLE_TARGETS)
+    install(TARGETS ${EXECUTABLE_TARGETS}
+      DESTINATION lib/${PROJECT_NAME}
+    )
+endif()
 
 # 安装头文件
 install(DIRECTORY include/
@@ -394,7 +581,7 @@ if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/config)
 endif()
 
 # 导出插件（如果插件文件存在）
-if(TARGET elu_adapter AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/elu_adapter/elu_adapter_plugins.xml)
+if(ELU_ADAPTER_AVAILABLE AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/plugins/elu_adapter/elu_adapter_plugins.xml)
     pluginlib_export_plugin_description_file(${PROJECT_NAME} plugins/elu_adapter/elu_adapter_plugins.xml)
 endif()
 
@@ -415,6 +602,7 @@ if(BUILD_TESTING)
   # 只有在有gtest的情况下才添加测试
   find_package(ament_cmake_gtest QUIET)
   if(ament_cmake_gtest_FOUND)
+    # 核心库测试
     if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test/unit/test_plugin_manager.cpp)
         ament_add_gtest(test_plugin_manager test/unit/test_plugin_manager.cpp)
         target_link_libraries(test_plugin_manager ${PROJECT_NAME}_core)
@@ -428,12 +616,94 @@ if(BUILD_TESTING)
     endif()
     
     # 如果机械臂SDK可用，添加SDK相关测试
-    if(TARGET XCoreSDK::XCoreSDK AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test/unit/test_rokae_adapter.cpp)
+    if(XCORE_SDK_LIBRARY_FOUND AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test/unit/test_rokae_adapter.cpp)
         ament_add_gtest(test_rokae_adapter test/unit/test_rokae_adapter.cpp)
         target_link_libraries(test_rokae_adapter ${PROJECT_NAME}_core XCoreSDK::XCoreSDK eigen)
         ament_target_dependencies(test_rokae_adapter ${dependencies})
     endif()
+    
+    # 视觉通信模块测试
+    if(VISION_COMMUNICATION_AVAILABLE AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test/unit/test_vision_communication.cpp)
+        ament_add_gtest(test_vision_communication 
+          test/unit/test_vision_communication.cpp
+        )
+        target_link_libraries(test_vision_communication 
+          ${PROJECT_NAME}_core 
+          vision_communication
+        )
+        if(WIN32)
+            target_link_libraries(test_vision_communication ws2_32)
+        endif()
+        ament_target_dependencies(test_vision_communication ${dependencies})
+    endif()
+    
+    # TCP通信集成测试
+    if(VISION_COMMUNICATION_AVAILABLE AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/test/integration/test_tcp_communication.cpp)
+        ament_add_gtest(test_tcp_communication 
+          test/integration/test_tcp_communication.cpp
+        )
+        target_link_libraries(test_tcp_communication 
+          ${PROJECT_NAME}_core 
+          vision_communication
+        )
+        if(WIN32)
+            target_link_libraries(test_tcp_communication ws2_32)
+        endif()
+        ament_target_dependencies(test_tcp_communication ${dependencies})
+    endif()
   endif()
+endif()
+
+# ==================== 构建状态报告 ====================
+
+# 在构建结束时输出状态报告
+message(STATUS "")
+message(STATUS "=== ELU Robot Arm Framework Build Configuration ===")
+message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
+message(STATUS "")
+message(STATUS "SDK Support:")
+message(STATUS "  XCore SDK Found: ${XCORE_SDK_FOUND}")
+message(STATUS "  XCore SDK Library Found: ${XCORE_SDK_LIBRARY_FOUND}")
+message(STATUS "  xMateModel Available: ${XMATEMODEL_AVAILABLE}")
+message(STATUS "")
+message(STATUS "Core Libraries:")
+message(STATUS "  Rokae Adapter: ${ROKAE_ADAPTER_AVAILABLE}")
+message(STATUS "  Rokae Motion Planner: ${ROKAE_MOTION_PLANNER_AVAILABLE}")
+message(STATUS "  Vision Communication: ${VISION_COMMUNICATION_AVAILABLE}")
+message(STATUS "  ELU Adapter: ${ELU_ADAPTER_AVAILABLE}")
+message(STATUS "")
+message(STATUS "Executable Nodes:")
+message(STATUS "  Rokae Integration Example: ${ROKAE_INTEGRATION_EXAMPLE_AVAILABLE}")
+message(STATUS "  Vision Communication Node: ${VISION_COMMUNICATION_NODE_AVAILABLE}")
+message(STATUS "  Vision Integration Example: ${VISION_INTEGRATION_EXAMPLE_AVAILABLE}")
+message(STATUS "  Motion Controller Node: ${MOTION_CONTROLLER_NODE_AVAILABLE}")
+message(STATUS "  Status Monitor Node: ${STATUS_MONITOR_NODE_AVAILABLE}")
+message(STATUS "")
+message(STATUS "Install Targets: ${INSTALL_TARGETS}")
+message(STATUS "Executable Targets: ${EXECUTABLE_TARGETS}")
+message(STATUS "")
+message(STATUS "Build Options:")
+message(STATUS "  XCORE_LINK_SHARED_LIBS: ${XCORE_LINK_SHARED_LIBS}")
+message(STATUS "  XCORE_USE_XMATE_MODEL: ${XCORE_USE_XMATE_MODEL}")
+message(STATUS "  BUILD_VISION_SUPPORT: ${BUILD_VISION_SUPPORT}")
+message(STATUS "  BUILD_TESTING: ${BUILD_TESTING}")
+message(STATUS "==================================================")
+message(STATUS "")
+
+# 给出构建建议
+if(NOT XCORE_SDK_LIBRARY_FOUND)
+    message(STATUS "💡 Build Tips:")
+    message(STATUS "   To enable full Rokae robot support, place the xCore SDK at:")
+    message(STATUS "   ${CMAKE_CURRENT_SOURCE_DIR}/third_party/xcore_sdk/")
+    message(STATUS "")
+endif()
+
+if(NOT VISION_COMMUNICATION_AVAILABLE AND BUILD_VISION_SUPPORT)
+    message(STATUS "💡 Vision Support Tips:")
+    message(STATUS "   To enable vision communication, create the source file at:")
+    message(STATUS "   ${CMAKE_CURRENT_SOURCE_DIR}/src/vision/vision_communication.cpp")
+    message(STATUS "")
 endif()
 
 ament_package()
