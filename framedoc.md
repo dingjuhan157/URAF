@@ -346,9 +346,6 @@ public:
 ```bash
 # 启动框架
 roslaunch robot_arm_framework robot_arm_framework.launch
-
-# 启动多机械臂控制
-roslaunch robot_arm_framework multi_arm_control.launch
 ```
 
 ### 编程接口使用

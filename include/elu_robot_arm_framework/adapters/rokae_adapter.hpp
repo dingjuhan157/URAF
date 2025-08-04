@@ -29,12 +29,12 @@ public:
   RokaeAdapter();
   virtual ~RokaeAdapter();
 
-  // 基础连接接口 - 修正方法签名
+  // 基础连接接口 
   bool connect(const std::string& config_file) override;
   bool disconnect() override;
   bool isConnected() const override;
 
-  // 运动控制接口 - 添加缺失参数以匹配基类
+  // 运动控制接口 
   bool moveToJoint(const std::vector<double>& joints, double speed_ratio = 1.0) override;
   bool moveToPose(const geometry_msgs::msg::Pose& pose, double speed_ratio = 1.0) override;
   bool linearMove(const geometry_msgs::msg::Pose& pose, double speed_ratio = 1.0) override;
@@ -45,12 +45,12 @@ public:
   RobotState getStatus() override;
   std::string getErrorMessage() override;
 
-  // 运动参数设置 - 修正方法名和参数
+  // 运动参数设置 
   bool setSpeed(double speed_ratio) override;
   bool setAcceleration(double acceleration_ratio) override;
   bool setPayload(double payload_kg) override;
 
-  // 安全控制 - 修正方法名
+  // 安全控制 
   bool emergencyStop() override;
   bool clearError() override;
   bool enable() override;
@@ -62,7 +62,7 @@ public:
   double getMaxPayload() const override;
   std::vector<double> getJointLimits() const override;
 
-  // 扩展接口（非基类要求的）- 移除override关键字
+  // 扩展接口（非基类要求的）
   bool moveToJointAsync(const std::vector<double>& joints);
   bool moveToPoseAsync(const geometry_msgs::msg::Pose& pose);
   bool setBlendRadius(double radius);

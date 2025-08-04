@@ -58,11 +58,11 @@ SDK集成: 使用Rokae SDK的运动生成器
 配置机械臂: 修改 rokae_cr7_config.yaml 中的IP地址等参数
 运行示例:
 
-bashros2 run elu_robot_arm_framework rokae_integration_example
+ros2 run elu_robot_arm_framework rokae_integration_example
 
 在代码中使用:
 
-cpp// 创建适配器
+// 创建适配器
 auto adapter = std::make_shared<RokaeAdapter>();
 
 // 连接机械臂

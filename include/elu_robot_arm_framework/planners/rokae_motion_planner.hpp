@@ -7,12 +7,7 @@
 #include <trajectory_msgs/msg/joint_trajectory.hpp>
 #include <memory>
 #include <vector>
-
-#ifdef XCORE_SDK_AVAILABLE
-#include "rokae/robot.h"
-#include "rokae/data_types.h"
-#include "rokae/planner.h"
-#endif
+#include <cmath>
 
 namespace elu_robot_arm_framework
 {
@@ -24,8 +19,6 @@ enum class PathPointType {
   JOINT_SPACE,      ///< 关节空间路径点
   CARTESIAN_SPACE   ///< 笛卡尔空间路径点
 };
-
-// 删除重复的 MotionType 定义，使用接口中的定义
 
 /**
  * @brief 路径点结构
@@ -52,6 +45,19 @@ struct TrajectorySegment {
   double execution_time;                ///< 预估执行时间 (秒)
   
   TrajectorySegment() : motion_type(MotionType::JOINT_MOVE), execution_time(0.0) {}
+};
+
+/**
+ * @brief 简化的DH参数结构
+ */
+struct DHParameter {
+  double a;      ///< 连杆长度
+  double d;      ///< 连杆偏移
+  double alpha;  ///< 连杆扭转角
+  double theta;  ///< 关节角度
+  
+  DHParameter(double a_val = 0.0, double d_val = 0.0, double alpha_val = 0.0, double theta_val = 0.0)
+    : a(a_val), d(d_val), alpha(alpha_val), theta(theta_val) {}
 };
 
 /**
@@ -218,6 +224,30 @@ public:
   bool getCurrentState(std::vector<double>& current_joints,
                       geometry_msgs::msg::Pose& current_pose);
 
+  // ==================== 新增实用功能 ====================
+  
+  /**
+   * @brief 设置工作空间限制
+   * @param workspace_limits 工作空间限制 [x_min, x_max, y_min, y_max, z_min, z_max]
+   */
+  void setWorkspaceLimits(const std::vector<double>& workspace_limits);
+  
+  /**
+   * @brief 检查位姿是否在工作空间内
+   * @param pose 目标位姿
+   * @return 是否在工作空间内
+   */
+  bool isInWorkspace(const geometry_msgs::msg::Pose& pose);
+  
+  /**
+   * @brief 计算两个关节配置之间的距离
+   * @param joints1 关节配置1
+   * @param joints2 关节配置2
+   * @return 关节空间距离
+   */
+  double calculateJointSpaceDistance(const std::vector<double>& joints1,
+                                    const std::vector<double>& joints2);
+
 protected:
   /**
    * @brief 转换ROS轨迹为Rokae运动指令
@@ -240,6 +270,32 @@ protected:
    */
   bool validateJointLimits(const std::vector<double>& joints);
 
+  /**
+   * @brief 生成五次多项式轨迹
+   */
+  bool generateQuinticTrajectory(const std::vector<double>& start_joints,
+                                const std::vector<double>& target_joints,
+                                double duration,
+                                int num_points,
+                                trajectory_msgs::msg::JointTrajectory& trajectory);
+
+  /**
+   * @brief 简化的DH正运动学计算
+   */
+  geometry_msgs::msg::Pose calculateForwardKinematicsDH(const std::vector<double>& joints);
+
+  /**
+   * @brief 简化的数值逆运动学计算
+   */
+  bool calculateInverseKinematicsNumerical(const geometry_msgs::msg::Pose& target_pose,
+                                          const std::vector<double>& seed_joints,
+                                          std::vector<double>& result_joints);
+
+  /**
+   * @brief 轨迹平滑处理
+   */
+  bool smoothTrajectory(trajectory_msgs::msg::JointTrajectory& trajectory);
+
 private:
   std::shared_ptr<class RokaeAdapter> robot_adapter_;  ///< 机械臂适配器
   
@@ -251,17 +307,44 @@ private:
   // 关节限制
   std::vector<std::pair<double, double>> joint_limits_;  ///< 关节限制
   
+  // 工作空间限制
+  std::vector<double> workspace_limits_;  ///< 工作空间限制
+  
+  // DH参数 (Rokae机械臂的简化DH参数)
+  std::vector<DHParameter> dh_params_;
+  
   // 内部状态
   bool is_initialized_;                ///< 是否初始化
   std::vector<double> last_joints_;    ///< 上次关节角度
   
+  // 数值计算参数
+  static constexpr double IK_TOLERANCE = 1e-6;      ///< 逆运动学容差
+  static constexpr int IK_MAX_ITERATIONS = 100;     ///< 逆运动学最大迭代次数
+  static constexpr double COLLISION_THRESHOLD = 0.05; ///< 碰撞检测阈值
+  
   // 日志
   rclcpp::Logger logger_;
-
-#ifdef XCORE_SDK_AVAILABLE
-  std::unique_ptr<rokae::JointMotionGenerator> joint_generator_;    ///< 关节运动生成器
-  std::unique_ptr<rokae::CartMotionGenerator> cart_generator_;     ///< 笛卡尔运动生成器
-#endif
+  
+  /**
+   * @brief 初始化DH参数 (Rokae机械臂参数)
+   */
+  void initializeDHParameters();
+  
+  /**
+   * @brief 矩阵乘法工具函数
+   */
+  std::vector<std::vector<double>> multiplyMatrices(const std::vector<std::vector<double>>& A,
+                                                   const std::vector<std::vector<double>>& B);
+  
+  /**
+   * @brief 创建DH变换矩阵
+   */
+  std::vector<std::vector<double>> createDHMatrix(const DHParameter& dh);
+  
+  /**
+   * @brief 计算雅克比矩阵
+   */
+  std::vector<std::vector<double>> calculateJacobian(const std::vector<double>& joints);
 };
 
 } // namespace elu_robot_arm_framework

@@ -136,8 +136,8 @@ private:
       RCLCPP_INFO(this->get_logger(), "Successfully connected to Rokae robot");
       
       // 设置运动参数
-      robot_adapter_->setSpeed(0.5);  // 50% 速度
-      robot_adapter_->setAcceleration(0.3);  // 30% 加速度
+      robot_adapter_->setSpeed(0.2);  // 20% 速度
+      robot_adapter_->setAcceleration(0.2);  // 20% 加速度
       robot_adapter_->setBlendRadius(0.01);  // 10mm转弯区
 
       // 打印初始状态
@@ -715,7 +715,7 @@ int main(int argc, char** argv)
     RCLCPP_INFO(rclcpp::get_logger("main"), "   - /joint_states");
     RCLCPP_INFO(rclcpp::get_logger("main"), "   - /robot_status");
     
-    // 设置信号处理器，优雅退出
+    // 设置信号处理器
     std::signal(SIGINT, [](int signal) {
       (void)signal; // 避免未使用参数警告
       RCLCPP_INFO(rclcpp::get_logger("main"), "Shutting down...");
