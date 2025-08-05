@@ -28,7 +28,7 @@ public:
         // 声明参数
         this->declare_parameter("use_robot_adapter", false);
         this->declare_parameter("robot_config_file", "config/robots/rokae_cr7_config.yaml");
-        this->declare_parameter("vision_server_ip", "192.168.1.100");
+        this->declare_parameter("vision_server_ip", "192.168.84.1");
         this->declare_parameter("vision_server_port", 8080);
         this->declare_parameter("auto_connect", true);
         this->declare_parameter("auto_reconnect", true);
@@ -144,30 +144,30 @@ private:
 
     void printUsageInstructions()
     {
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "📋 === Vision Communication Node Usage ===");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "🔗 Connection Management:");
         RCLCPP_INFO(this->get_logger(), "  ros2 service call /connect_vision std_srvs/srv/Trigger");
         RCLCPP_INFO(this->get_logger(), "  ros2 service call /disconnect_vision std_srvs/srv/Trigger");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "🎯 Vision Detection:");
-        RCLCPP_INFO(this->get_logger(), "  ros2 service call /trigger_vision elu_robot_arm_framework/srv/TriggerVision \"{station_id: 1, timeout: 10.0}\"");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), "  ros2 service call /trigger_vision elu_robot_arm_framework/srv/TriggerVision \"{station_id: 1, timeout: 10.0}\" ");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "📊 Monitoring:");
         RCLCPP_INFO(this->get_logger(), "  ros2 topic echo /vision_result");
         RCLCPP_INFO(this->get_logger(), "  ros2 topic echo /vision_connection_status");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "🔧 Testing:");
         RCLCPP_INFO(this->get_logger(), "  # Test connection");
         RCLCPP_INFO(this->get_logger(), "  ros2 topic echo /vision_connection_status --once");
         RCLCPP_INFO(this->get_logger(), "  # Test detection");
-        RCLCPP_INFO(this->get_logger(), "  ros2 service call /trigger_vision elu_robot_arm_framework/srv/TriggerVision \"{station_id: 1, timeout: 15.0}\"");
+        RCLCPP_INFO(this->get_logger(), "  ros2 service call /trigger_vision elu_robot_arm_framework/srv/TriggerVision \"{station_id: 1, timeout: 15.0}\" ");
         RCLCPP_INFO(this->get_logger(), "  # Monitor results");
         RCLCPP_INFO(this->get_logger(), "  ros2 topic echo /vision_result --once");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
         RCLCPP_INFO(this->get_logger(), "========================================");
-        RCLCPP_INFO(this->get_logger(), "");
+        RCLCPP_INFO(this->get_logger(), " ");
     }
 
 private:
@@ -243,7 +243,7 @@ public:
     }
     
     std::string getErrorMessage() override {
-        return "";
+        return " ";
     }
 
     // 控制参数设置 (模拟实现)

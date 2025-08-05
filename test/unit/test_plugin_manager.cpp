@@ -36,5 +36,5 @@ TEST_F(PluginManagerTest, GetAvailablePluginsTest)
 {
   auto available_plugins = plugin_manager_->getAvailablePlugins();
   // 至少应该有ELU适配器插件
-  EXPECT_TRUE(available_plugins.size() >= 0);
+  EXPECT_TRUE(available_plugins.size() >0);
 }

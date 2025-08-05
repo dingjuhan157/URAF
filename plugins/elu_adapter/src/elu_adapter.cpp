@@ -44,6 +44,7 @@ EluAdapter::~EluAdapter()
 bool EluAdapter::connect(const std::string& config_file)
 {
   try {
+    (void)config_file;  // 添加这行来消除警告
     // 简化配置读取 - 使用默认参数
     ip_address_ = "192.168.1.100";
     port_ = 8080;

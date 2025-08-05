@@ -507,11 +507,11 @@ void VisionCommunication::handleVisionResult(const std::string& message)
                     // 检测到目标，解析坐标
                     int expected_coords = result.code * 6;  // 每个坐标6个值 (x,y,z,a,b,c)
                     
-                    if (parts.size() >= 1 + expected_coords) {
+                    if (parts.size() >= static_cast<size_t>(1 + expected_coords)) {
                         for (int i = 0; i < result.code; ++i) {
                             int start_idx = 1 + i * 6;
                             
-                            if (start_idx + 5 < parts.size()) {
+                            if (static_cast<size_t>(start_idx + 5) < parts.size()) {
                                 double x = std::stod(parts[start_idx]);
                                 double y = std::stod(parts[start_idx + 1]);
                                 double z = std::stod(parts[start_idx + 2]);
