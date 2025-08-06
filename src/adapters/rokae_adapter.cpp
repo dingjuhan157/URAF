@@ -10,8 +10,8 @@ namespace elu_robot_arm_framework
 
 // 修复构造函数 - 按照头文件中声明的顺序初始化成员变量
 RokaeAdapter::RokaeAdapter()
-: robot_ip_("192.168.1.100")              // 默认IP
-, local_ip_("192.168.1.10")               // 默认本地IP
+: robot_ip_("192.168.0.160")              // 默认IP
+, local_ip_("192.168.0.100")               // 默认本地IP
 , connection_timeout_(5000)                // 连接超时时间
 , default_speed_(200.0)                    // 默认速度 (mm/s)
 , default_acceleration_(0.5)               // 默认加速度百分比

@@ -286,7 +286,7 @@ bool EluAdapter::enable()
     current_state_ = elu_robot_arm_framework::RobotState::IDLE;
   }
 
-  RCLCPP_INFO(logger_, "Robot enabled");
+  (logger_, "Robot enabled");
   return true;
 }
 
